@@ -239,7 +239,7 @@ function opsTable(ops, { selectable = false, fixable = false, showMessage = true
               ${selectable ? `<td class="col-check"><input type="checkbox" class="check" data-action="select-op" data-op="${o.id}" ${ui.selected.has(o.id) ? 'checked' : ''} aria-label="Выбрать: ${esc(o.client)}"></td>` : ''}
               <td class="col-client">
                 <div class="ellipsis" title="${esc(o.client)}">${esc(o.client)}</div>
-                <div class="sub"><a class="link" href="javascript:void 0" data-action="contract" data-op="${o.id}">${o.contract}</a> · ${o.contractDate}</div>
+                <div class="sub"><a class="link" href="#" data-action="contract" data-op="${o.id}">${o.contract}</a> · ${o.contractDate}</div>
                 ${!o.inn ? `<div class="sub">${fixable
                   ? `<button class="linklike linklike--warn" type="button" data-action="fix-inn" data-op="${o.id}">ИНН не указан — указать</button>`
                   : '<span class="text-warn">ИНН не указан</span>'}</div>` : ''}
@@ -587,9 +587,10 @@ function viewNotFound() {
 /* ---------- Роутинг ---------- */
 
 let currentRoute = '';
+let currentPath = (() => { try { return location.hash.replace(/^#/, '') || '/'; } catch (e) { return '/'; } })();
 
 function render({ keepScroll = false } = {}) {
-  const route = location.hash.replace(/^#/, '') || '/';
+  const route = currentPath;
   const parts = route.split('?')[0].split('/').filter(Boolean);
 
   if (route !== currentRoute) {
@@ -643,7 +644,7 @@ function deleteMessage(id) {
       opsOf(id).forEach((o) => { o.messageId = null; });
       state.messages = state.messages.filter((x) => x.id !== id);
       save();
-      if (location.hash.startsWith('#/messages/')) location.hash = '#/messages';
+      if (currentPath.startsWith('/messages/')) go('/messages');
       else render({ keepScroll: true });
       toast(`Сообщение ${m.number} удалено`, {
         action: 'Отменить',
@@ -721,7 +722,7 @@ function createMessage() {
   state.messages.unshift({ id: number, number, date: today(), type: 'FMO1', status: 'ready', sentAt: null });
   state.ops.forEach((o) => { if (ids.includes(o.id)) { o.messageId = number; o.isNew = false; } });
   save();
-  location.hash = `#/messages/${number}`;
+  go(`/messages/${number}`);
   toast(`Сообщение ${number} сформировано · ${nOps(ids.length)}`);
 }
 
@@ -818,7 +819,7 @@ document.addEventListener('click', (e) => {
           title: 'Сбросить данные прототипа?',
           body: '<p>Все созданные, удалённые и отправленные сообщения вернутся к исходному виду.</p>',
           confirmText: 'Сбросить',
-          onConfirm() { state = makeSeed(); save(); ui.selected.clear(); ui.draftNumber = null; location.hash = '#/'; render(); toast('Данные сброшены'); },
+          onConfirm() { state = makeSeed(); save(); ui.selected.clear(); ui.draftNumber = null; go('/'); toast('Данные сброшены'); },
         });
     }
   }
@@ -826,7 +827,7 @@ document.addEventListener('click', (e) => {
   if (ui.periodOpen && !e.target.closest('.fsel--period')) { ui.periodOpen = false; render({ keepScroll: true }); return; }
   // клик по строке таблицы сообщений открывает сообщение
   const row = e.target.closest('tr[data-href]');
-  if (row && !e.target.closest('a, button, input, label')) { location.hash = row.dataset.href; return; }
+  if (row && !e.target.closest('a, button, input, label')) { go(row.dataset.href.slice(1)); return; }
   // клик по строке при выборе операций переключает галочку
   const pickRow = e.target.closest('.table--ops tbody tr');
   if (pickRow && !e.target.closest('a, button, input, label')) {
@@ -880,7 +881,25 @@ function refreshList() {
   syncIndeterminate();
 }
 
-window.addEventListener('hashchange', () => render());
+// Навигация без перехода по адресу: так прототип работает и во встроенном
+// просмотре, где переходы по ссылкам заблокированы.
+function go(path) {
+  currentPath = path || '/';
+  try { history.pushState({ path: currentPath }, '', '#' + currentPath); } catch (e) { /* просмотр без истории */ }
+  render();
+}
+
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[href^="#"]');
+  if (!a || a.dataset.action || e.defaultPrevented) return;
+  e.preventDefault();
+  go(a.getAttribute('href').slice(1));
+}, true);
+
+window.addEventListener('popstate', () => {
+  currentPath = location.hash.replace(/^#/, '') || '/';
+  render();
+});
 
 /* ---------- Иллюстрация баннера (заглушка вместо 3D-картинки) ---------- */
 
