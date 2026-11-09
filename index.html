@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Моя работа — TWork</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="TWork — на главную">
+      <svg class="brand__logo" viewBox="0 0 32 32" aria-hidden="true">
+        <rect x="2" y="2" width="28" height="28" rx="7" fill="#fff"/>
+        <path d="M8 18c0-3 2-5 5-5h1v11c-3.5 0-6-2.5-6-6z" fill="#ffdd2d"/>
+        <rect x="16" y="6" width="8" height="18" rx="3" fill="#e9e9e9"/>
+      </svg>
+      <span class="brand__name">TWork</span>
+    </a>
+
+    <div class="user">
+      <div class="user__info">
+        <div class="user__name">Алексей П.</div>
+        <div class="user__status">Оффлайн</div>
+      </div>
+      <button class="user__power" type="button" aria-label="Сменить статус">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3v8" />
+          <path d="M6.4 6.6a8 8 0 1 0 11.2 0" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <nav class="subnav" aria-label="Разделы">
+    <a class="subnav__item is-active" href="index.html" aria-label="Главная" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 12h3v8h5v-5h4v5h5v-8h3z"/></svg>
+    </a>
+  </nav>
+
+  <main class="page">
+    <h1 class="page__title">Моя работа</h1>
+    <p class="page__subtitle">Здесь собраны твои рабочие инструменты</p>
+
+    <section class="card banner" aria-labelledby="statuses-title">
+      <h2 id="statuses-title" class="banner__title">Статусы</h2>
+      <!-- SVG-заглушка. Чтобы поставить свою картинку, замените <svg> на <img src="assets/banner.png" alt=""> -->
+      <div class="banner__art" aria-hidden="true">
+        <svg viewBox="0 0 460 272" preserveAspectRatio="xMaxYMax meet">
+          <defs>
+            <linearGradient id="y" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#fff176"/>
+              <stop offset=".55" stop-color="#ffdd2d"/>
+              <stop offset="1" stop-color="#f2b705"/>
+            </linearGradient>
+            <linearGradient id="w" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ffffff"/>
+              <stop offset="1" stop-color="#d9d9d9"/>
+            </linearGradient>
+          </defs>
+          <!-- подиумы -->
+          <path d="M150 272V150q0-12 12-12h170q60 0 90 40l38 52v42z" fill="url(#w)"/>
+          <rect x="0" y="230" width="230" height="42" fill="#ececec"/>
+          <rect x="48" y="205" width="110" height="67" fill="url(#w)"/>
+          <!-- колокольчик -->
+          <path d="M72 205a40 36 0 0 1 80 0z" fill="url(#y)"/>
+          <circle cx="112" cy="148" r="20" fill="url(#y)"/>
+          <rect x="108" y="212" width="12" height="60" rx="3" fill="#ffd400"/>
+          <rect x="94" y="232" width="40" height="11" rx="3" fill="#ffd400"/>
+          <!-- шарики -->
+          <circle cx="72" cy="110" r="8" fill="#e6e6e6"/>
+          <circle cx="72" cy="130" r="8" fill="#e6e6e6"/>
+          <circle cx="72" cy="150" r="8" fill="url(#y)"/>
+          <!-- наушники -->
+          <path d="M225 120V70a90 90 0 0 1 180 0v70" fill="none" stroke="url(#w)" stroke-width="26" stroke-linecap="round"/>
+          <path d="M225 70a90 90 0 0 1 40-62" fill="none" stroke="#ffdd2d" stroke-width="26" stroke-linecap="round"/>
+          <ellipse cx="258" cy="128" rx="44" ry="58" fill="url(#y)"/>
+          <ellipse cx="264" cy="128" rx="26" ry="38" fill="#fff4b0"/>
+          <ellipse cx="380" cy="150" rx="40" ry="56" transform="rotate(25 380 150)" fill="url(#y)"/>
+          <ellipse cx="372" cy="150" rx="22" ry="34" transform="rotate(25 372 150)" fill="#f5f5f5"/>
+          <path d="M360 200q-40 30-110 22" fill="none" stroke="#ffd400" stroke-width="8" stroke-linecap="round"/>
+          <circle cx="248" cy="221" r="9" fill="#ffd400"/>
+        </svg>
+      </div>
+    </section>
+
+    <section class="card messages" aria-labelledby="messages-title">
+      <div class="messages__head">
+        <h2 id="messages-title" class="messages__title">Сообщения РФМ</h2>
+        <div class="messages__actions">
+          <span class="ready"><b id="ready-count">24 операции</b> готовы к отправке</span>
+          <button class="btn btn--primary" type="button">Создать сообщение</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Номер</th>
+              <th>Дата</th>
+              <th>Тип</th>
+              <th>Статус</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody id="messages-body">
+            <tr>
+              <td>00001105</td>
+              <td>22.02.2025</td>
+              <td>FMO1</td>
+              <td><span class="status status--ready">Готово к отправке</span></td>
+              <td><button class="icon-btn" type="button" aria-label="Удалить сообщение 00001105"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M9 6V4h6v2M6.5 6l1 14h9l1-14"/></svg></button></td>
+            </tr>
+            <tr>
+              <td>
+                00001108
+                <span class="warn" title="Требует внимания" aria-label="Требует внимания">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 1.5 21h21z" fill="#ff8a00"/><path d="M12 9v5.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1.3" fill="#fff"/></svg>
+                </span>
+              </td>
+              <td>22.02.2025</td>
+              <td>FMO1</td>
+              <td><span class="status status--ready">Готово к отправке</span></td>
+              <td><button class="icon-btn" type="button" aria-label="Удалить сообщение 00001108"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M9 6V4h6v2M6.5 6l1 14h9l1-14"/></svg></button></td>
+            </tr>
+            <tr>
+              <td>00001103</td>
+              <td>22.02.2025</td>
+              <td>FMO1</td>
+              <td><span class="status status--sent">Отправлено</span></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>00001102</td>
+              <td>22.02.2025</td>
+              <td>FMO1</td>
+              <td><span class="status status--ready">Готово к отправке</span></td>
+              <td><button class="icon-btn" type="button" aria-label="Удалить сообщение 00001102"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M9 6V4h6v2M6.5 6l1 14h9l1-14"/></svg></button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="messages__total" id="messages-total">Всего 15 сообщений и 240 операции</p>
+
+      <div class="messages__links">
+        <a class="btn btn--secondary" href="#">Все сообщения</a>
+        <a class="btn btn--link" href="#">Операции</a>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
