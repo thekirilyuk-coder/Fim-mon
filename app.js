@@ -1,7 +1,7 @@
 /* Кликабельный прототип «Сообщения РФМ».
    Все данные вымышленные и живут в localStorage этого браузера. */
 
-const STORAGE_KEY = 'finmon-prototype-v1';
+const STORAGE_KEY = 'finmon-prototype-v2';
 
 /* ---------- Справочники ---------- */
 
@@ -15,25 +15,21 @@ const MSG_TYPES = {
   FMO2: 'Подозрительные операции',
 };
 
+const OP_KINDS = ['Первичное отправление', 'Повторное отправление', 'Исправление'];
+
 const USER_STATUS = {
-  online:   { label: 'Онлайн',   hint: 'Принимаю задачи',              color: '#00b92d' },
-  offline:  { label: 'Оффлайн',  hint: 'Не на рабочем месте',          color: '#9b59d0' },
-  break:    { label: 'Перерыв',  hint: 'Вернусь в течение 15 минут',   color: '#ff8a00' },
+  online:   { label: 'Онлайн',   hint: 'Принимаю задачи',             color: '#00b92d' },
+  offline:  { label: 'Оффлайн',  hint: 'Не на рабочем месте',         color: '#9b59d0' },
+  break:    { label: 'Перерыв',  hint: 'Вернусь в течение 15 минут',  color: '#ff8a00' },
   training: { label: 'Обучение', hint: 'На обучении, задачи не беру', color: '#428bf9' },
 };
 
 const CLIENTS = [
-  ['ООО «Ромашка»', '7701234567'], ['ИП Сидоров А. В.', '502401234567'],
-  ['ООО «Вектор»', '7812345670'], ['АО «Северный ветер»', '2901234568'],
-  ['ООО «Гранит»', '6658123456'], ['ИП Кузнецова Е. С.', '773301234561'],
-  ['ООО «Лесная поляна»', '5406123457'], ['АО «Меридиан»', '7707654321'],
-  ['ООО «Альфа-Строй»', '1655123458'], ['ИП Морозов Д. И.', '631201234569'],
-];
-
-const CODES = [
-  ['1001', 'Снятие наличных'], ['3011', 'Перевод за рубеж'],
-  ['5003', 'Зачисление на счёт'], ['6001', 'Сделка с недвижимостью'],
-  ['8001', 'Покупка ценных бумаг'],
+  ['ООО «Наггетсы с соусом»', '7701234567'], ['ООО «Фрешролл»', '7812345670'],
+  ['ООО «Бигхит»', '2901234568'], ['ИП Картошкин Игорь Николаевич', '502401234567'],
+  ['ООО «Макфлури»', '6658123456'], ['ИП Бигмакова Алина Сергеевна', '773301234561'],
+  ['ООО «Добрая»', '5406123457'], ['АО «Твистер»', '7707654321'],
+  ['ООО «Чизбургер»', '1655123458'], ['ИП Наггетсов Пётр Ильич', '631201234569'],
 ];
 
 /* ---------- Начальные данные ---------- */
@@ -42,6 +38,11 @@ function makeSeed() {
   let s = 42;
   const rnd = () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296;
   const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+  const pad = (n, len) => String(n).padStart(len, '0');
+  const shiftDate = (date, days) => {
+    const [d, m, y] = date.split('.').map(Number);
+    return new Date(y, m - 1, d - days).toLocaleDateString('ru-RU');
+  };
 
   // [номер, статус, дата, кол-во операций]
   const plan = [
@@ -63,32 +64,48 @@ function makeSeed() {
   ]; // 216 операций в сообщениях + 24 свободных = 240
 
   const ops = [];
-  let n = 1;
+  let n = 400;
   const makeOp = (date, messageId) => {
     const [client, inn] = pick(CLIENTS);
-    const [code, codeName] = pick(CODES);
+    const r = rnd();
+    // суммы разного порядка: от сотен тысяч до десятков миллионов
+    const amount = Math.round(r < .15 ? 20e6 + rnd() * 80e6 : r < .6 ? 1e6 + rnd() * 4e6 : 600e3 + rnd() * 900e3);
+    const contractDate = shiftDate(date, 30 + Math.floor(rnd() * 300));
     return {
-      id: 'ОП-' + String(48200 + n++),
-      date, client, inn, code, codeName,
-      amount: Math.round((600000 + rnd() * 9400000) / 100) * 100,
+      id: pad(++n, 8),
+      client, inn,
+      contract: 'ААА ' + pad(7000000 + Math.floor(rnd() * 999999), 7),
+      contractDate,
+      kind: rnd() < .85 ? OP_KINDS[0] : pick(OP_KINDS.slice(1)),
+      appDate: date,
+      overdueDays: 1 + Math.floor(rnd() * 3),
+      detectedDate: date,
+      amount,
+      isNew: false,
+      prevMessage: null,
       messageId,
     };
   };
 
   const messages = plan.map(([number, status, date, count]) => {
     for (let i = 0; i < count; i++) ops.push(makeOp(date, number));
-    return {
-      id: number, number, date, type: 'FMO1', status,
-      sentAt: status === 'sent' ? date : null,
-    };
+    return { id: number, number, date, type: 'FMO1', status, sentAt: status === 'sent' ? date : null };
   });
 
   // В сообщении 00001108 у одной операции не указан ИНН — это и есть «предупреждение»
   ops.find((o) => o.messageId === '00001108').inn = '';
 
-  for (let i = 0; i < 24; i++) ops.push(makeOp('22.02.2025', null));
+  // 24 операции, готовые к отправке. Новые — сверху, у части есть прошлое сообщение
+  const free = [];
+  for (let i = 0; i < 24; i++) {
+    const o = makeOp('09.01.2025', null);
+    if (i < 2) o.isNew = true;
+    if (i % 3 !== 1) o.prevMessage = pick(['00001103', '00001101', '00001099']);
+    free.push(o);
+  }
+  ops.push(...free.reverse());
 
-  return { messages, ops, nextNumber: 1109, userStatus: 'offline' };
+  return { messages, ops, userStatus: 'offline' };
 }
 
 /* ---------- Состояние ---------- */
@@ -97,8 +114,9 @@ let state = load();
 const ui = {
   msgFilter: 'all', msgQuery: '',
   opsTab: 'ready', opsQuery: '', opsLimit: 20,
+  pickQuery: '', pickKind: '',
   selected: new Set(),
-  createType: 'FMO1',
+  draftNumber: null,
 };
 
 function load() {
@@ -121,6 +139,14 @@ const msgById = (id) => state.messages.find((m) => m.id === id);
 const hasIssue = (m) => m.status === 'ready' && opsOf(m.id).some((o) => !o.inn);
 const sumOf = (ops) => ops.reduce((s, o) => s + o.amount, 0);
 
+// Следующий свободный номер сообщения (номера удалённых сообщений освобождаются)
+function nextNumber() {
+  const taken = new Set(state.messages.map((m) => m.number));
+  let n = 1106;
+  while (taken.has(String(n).padStart(8, '0'))) n++;
+  return String(n).padStart(8, '0');
+}
+
 /* ---------- Утилиты ---------- */
 
 const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -134,7 +160,8 @@ function plural(n, forms) {
 }
 const nOps = (n) => `${n} ${plural(n, ['операция', 'операции', 'операций'])}`;
 const nMsgs = (n) => `${n} ${plural(n, ['сообщение', 'сообщения', 'сообщений'])}`;
-const money = (n) => n.toLocaleString('ru-RU') + ' ₽';
+const num = (n) => n.toLocaleString('ru-RU');
+const money = (n) => num(n) + ' ₽';
 const today = () => new Date().toLocaleDateString('ru-RU');
 
 const ICON = {
@@ -142,12 +169,13 @@ const ICON = {
   warn: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 1.5 21h21z" fill="#ff8a00"/><path d="M12 9v5.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1.3" fill="#fff"/></svg>',
   search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>',
   back: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
+  close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
 };
 
 const statusPill = (m) => `<span class="status status--${MSG_STATUS[m.status].cls}">${MSG_STATUS[m.status].label}</span>`;
 const warnMark = (m) => hasIssue(m) ? `<span class="warn" title="Требует внимания" aria-label="Требует внимания">${ICON.warn}</span>` : '';
 
-/* ---------- Общие куски разметки ---------- */
+/* ---------- Таблица сообщений ---------- */
 
 function messagesTable(list, { empty = 'Сообщений нет' } = {}) {
   if (!list.length) return `<div class="empty">${empty}</div>`;
@@ -171,17 +199,76 @@ function messagesTable(list, { empty = 'Сообщений нет' } = {}) {
     </div>`;
 }
 
-function setCrumbs(items) {
-  document.getElementById('crumbs').innerHTML = items
-    .map(([label, href]) => `<li>${href ? `<a href="${href}">${esc(label)}</a>` : `<span>${esc(label)}</span>`}</li>`)
-    .join('');
-  document.getElementById('nav-home').classList.toggle('is-active', items.length === 0);
+/* ---------- Таблица операций (как в макете выбора операций) ---------- */
+
+function opsTable(ops, { selectable = false, fixable = false, showMessage = true, empty = 'Операций нет' } = {}) {
+  if (!ops.length) return `<div class="empty">${empty}</div>`;
+  const checkedCount = selectable ? ops.filter((o) => ui.selected.has(o.id)).length : 0;
+  const allState = checkedCount === 0 ? '' : checkedCount === ops.length ? 'checked' : 'data-indeterminate';
+  return `
+    <div class="table-wrap">
+      <table class="table table--ops">
+        <thead><tr>
+          ${selectable ? `<th class="col-check"><input type="checkbox" class="check" data-action="select-all" ${allState} aria-label="Выбрать все"></th>` : ''}
+          <th>Лизингополучатель,<br>номер ДЛ и дата выдачи ПЛ</th>
+          <th>Тип</th>
+          <th>Номер записи<br>и дата АПП</th>
+          <th>Дней просрочки<br>и дата выявления</th>
+          <th>Сумма, ₽</th>
+          ${showMessage ? '<th>Номер сообщения</th>' : ''}
+        </tr></thead>
+        <tbody>
+          ${ops.map((o) => {
+            const msg = o.messageId || o.prevMessage;
+            return `
+            <tr class="${selectable && ui.selected.has(o.id) ? 'is-selected' : ''}">
+              ${selectable ? `<td class="col-check"><input type="checkbox" class="check" data-action="select-op" data-op="${o.id}" ${ui.selected.has(o.id) ? 'checked' : ''} aria-label="Выбрать запись ${o.id}"></td>` : ''}
+              <td>
+                <div>${esc(o.client)}</div>
+                <div class="sub"><a class="link" href="javascript:void 0" data-action="contract" data-op="${o.id}">${o.contract}</a> · ${o.contractDate}</div>
+                ${!o.inn ? `<div class="sub">${fixable
+                  ? `<button class="linklike linklike--warn" type="button" data-action="fix-inn" data-op="${o.id}">ИНН не указан — указать</button>`
+                  : '<span class="text-warn">ИНН не указан</span>'}</div>` : ''}
+              </td>
+              <td>
+                <div>${o.kind}</div>
+                ${o.isNew ? '<span class="badge">Новая</span>' : ''}
+              </td>
+              <td><div>${o.id}</div><div class="sub">${o.appDate}</div></td>
+              <td><div>${o.overdueDays}</div><div class="sub">${o.detectedDate}</div></td>
+              <td>${num(o.amount)}</td>
+              ${showMessage ? `<td>${msg ? `<a class="link" href="#/messages/${msg}">${msg}</a>` : '<span class="muted">—</span>'}</td>` : ''}
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+/* ---------- Навигация под шапкой ---------- */
+
+function setNav(items, { tab } = {}) {
+  const crumbs = document.getElementById('crumbs');
+  if (tab) {
+    crumbs.className = 'navtabs';
+    crumbs.innerHTML = `
+      <li class="navtab is-active">
+        <span>${esc(tab.label)}</span>
+        <a class="navtab__close" href="${tab.closeHref}" aria-label="Закрыть">${ICON.close}</a>
+      </li>`;
+  } else {
+    crumbs.className = 'crumbs';
+    crumbs.innerHTML = items
+      .map(([label, href]) => `<li>${href ? `<a href="${href}">${esc(label)}</a>` : `<span>${esc(label)}</span>`}</li>`)
+      .join('');
+  }
+  document.getElementById('nav-home').classList.toggle('is-active', !tab && items.length === 0);
 }
 
 /* ---------- Экраны ---------- */
 
 function viewHome() {
-  setCrumbs([]);
+  setNav([]);
   const free = freeOps().length;
   return `
     <h1 class="page__title">Моя работа</h1>
@@ -216,7 +303,7 @@ function viewHome() {
 }
 
 function viewMessages() {
-  setCrumbs([['Сообщения РФМ']]);
+  setNav([['Сообщения РФМ']]);
   const counts = {
     all: state.messages.length,
     ready: state.messages.filter((m) => m.status === 'ready').length,
@@ -256,7 +343,7 @@ function messagesList() {
 function viewMessage(id) {
   const m = msgById(id);
   if (!m) return viewNotFound();
-  setCrumbs([['Сообщения РФМ', '#/messages'], [m.number]]);
+  setNav([['Сообщения РФМ', '#/messages'], [m.number]]);
   const ops = opsOf(m.id);
   const broken = ops.filter((o) => !o.inn);
   const issue = hasIssue(m);
@@ -280,8 +367,8 @@ function viewMessage(id) {
         <div class="callout__body">
           <b>Сообщение нельзя отправить</b>
           <p>${broken.length === 1
-            ? `В операции ${broken[0].id} не указан ИНН клиента.`
-            : `В ${nOps(broken.length)} не указан ИНН клиента.`}</p>
+            ? `В записи ${broken[0].id} (${esc(broken[0].client)}) не указан ИНН лизингополучателя.`
+            : `В ${nOps(broken.length)} не указан ИНН лизингополучателя.`}</p>
         </div>
         <button class="btn btn--secondary btn--sm" type="button" data-action="fix-inn" data-op="${broken[0].id}">Указать ИНН</button>
       </div>` : ''}
@@ -298,46 +385,17 @@ function viewMessage(id) {
 
     <section class="card messages">
       <h2 class="messages__title">Операции в сообщении</h2>
-      ${opsTable(ops, { fixable: m.status === 'ready' })}
+      ${opsTable(ops, { fixable: m.status === 'ready', showMessage: false })}
     </section>`;
 }
 
-function opsTable(ops, { selectable = false, fixable = false, showMessage = false } = {}) {
-  if (!ops.length) return '<div class="empty">Операций нет</div>';
-  const allChecked = selectable && ops.every((o) => ui.selected.has(o.id));
-  return `
-    <div class="table-wrap">
-      <table class="table">
-        <thead><tr>
-          ${selectable ? `<th class="col-check"><input type="checkbox" class="check" data-action="select-all" ${allChecked ? 'checked' : ''} aria-label="Выбрать все"></th>` : ''}
-          <th>Операция</th><th>Дата</th><th>Клиент</th><th>ИНН</th><th>Код</th><th class="num">Сумма</th>
-          ${showMessage ? '<th>Сообщение</th>' : ''}
-        </tr></thead>
-        <tbody>
-          ${ops.map((o) => `
-            <tr class="${selectable && ui.selected.has(o.id) ? 'is-selected' : ''}">
-              ${selectable ? `<td class="col-check"><input type="checkbox" class="check" data-action="select-op" data-op="${o.id}" ${ui.selected.has(o.id) ? 'checked' : ''} aria-label="Выбрать ${o.id}"></td>` : ''}
-              <td>${o.id}</td>
-              <td>${o.date}</td>
-              <td>${esc(o.client)}</td>
-              <td>${o.inn ? o.inn : fixable
-                ? `<button class="linklike linklike--warn" type="button" data-action="fix-inn" data-op="${o.id}">Не указан — указать</button>`
-                : '<span class="muted">не указан</span>'}</td>
-              <td title="${esc(o.codeName)}">${o.code}</td>
-              <td class="num">${money(o.amount)}</td>
-              ${showMessage ? `<td>${o.messageId ? `<a class="link" href="#/messages/${o.messageId}">${o.messageId}</a>` : '<span class="status status--ready">Готова</span>'}</td>` : ''}
-            </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>`;
-}
-
 function viewOperations() {
-  setCrumbs([['Операции']]);
+  setNav([['Операции']]);
   const free = freeOps().length;
   return `
     <div class="page-head">
       <h1 class="page__title page__title--sm">Операции</h1>
+      ${free ? '<a class="btn btn--primary" href="#/create">Создать сообщение</a>' : ''}
     </div>
     <section class="card messages">
       <div class="toolbar">
@@ -346,87 +404,79 @@ function viewOperations() {
           <button type="button" class="tab ${ui.opsTab === 'all' ? 'is-active' : ''}" data-action="ops-tab" data-tab="all" role="tab">Все <span class="chip__count">${state.ops.length}</span></button>
         </div>
         <label class="search">${ICON.search}
-          <input type="search" id="ops-search" placeholder="Клиент, ИНН или номер" value="${esc(ui.opsQuery)}">
+          <input type="search" id="ops-search" placeholder="Лизингополучатель, договор или запись" value="${esc(ui.opsQuery)}">
         </label>
       </div>
       <div id="list">${operationsList()}</div>
-    </section>
-    <div id="selbar">${selectionBar()}</div>`;
+    </section>`;
 }
+
+const matches = (o, q) => !q || [o.id, o.client, o.contract, o.inn].some((v) => v.toLowerCase().includes(q));
 
 function operationsList() {
   const q = ui.opsQuery.trim().toLowerCase();
   const source = ui.opsTab === 'ready' ? freeOps() : state.ops.slice().reverse();
-  const list = source.filter((o) => !q || [o.id, o.client, o.inn].some((v) => v.toLowerCase().includes(q)));
+  const list = source.filter((o) => matches(o, q));
   const shown = list.slice(0, ui.opsLimit);
-  if (ui.opsTab === 'ready' && !freeOps().length) {
-    return '<div class="empty">Все операции уже включены в сообщения</div>';
-  }
   return `
-    ${opsTable(shown, { selectable: ui.opsTab === 'ready', showMessage: ui.opsTab === 'all' })}
+    ${opsTable(shown, { empty: ui.opsTab === 'ready' && !q ? 'Все операции уже включены в сообщения' : 'Ничего не найдено' })}
     ${list.length > shown.length
       ? `<div class="more"><button class="btn btn--secondary" type="button" data-action="more">Показать ещё · осталось ${list.length - shown.length}</button></div>`
       : ''}`;
 }
 
-function selectionBar() {
-  const n = ui.selected.size;
-  if (!n) return '';
-  const sum = sumOf(state.ops.filter((o) => ui.selected.has(o.id)));
-  return `
-    <div class="selbar">
-      <span>Выбрано <b>${nOps(n)}</b> на ${money(sum)}</span>
-      <div class="selbar__actions">
-        <button class="btn btn--link btn--sm" type="button" data-action="clear-selection">Сбросить</button>
-        <a class="btn btn--primary btn--sm" href="#/create">Создать сообщение</a>
-      </div>
-    </div>`;
-}
+/* --- Создание сообщения: выбор операций (по макету) --- */
 
 function viewCreate() {
-  setCrumbs([['Сообщения РФМ', '#/messages'], ['Новое сообщение']]);
-  const free = freeOps();
-  // выбранные на экране операций переходят сюда; если ничего не выбрано — берём все готовые
-  if (!ui.selected.size) free.forEach((o) => ui.selected.add(o.id));
+  if (!ui.draftNumber) {
+    ui.draftNumber = nextNumber();
+    // по умолчанию выбраны все операции, готовые к отправке
+    ui.selected = new Set(freeOps().map((o) => o.id));
+    ui.pickQuery = ''; ui.pickKind = '';
+  }
+  setNav([], { tab: { label: `Сообщение ${ui.draftNumber}`, closeHref: '#/' } });
   return `
-    <a class="back" href="javascript:history.back()">${ICON.back}Назад</a>
-    <h1 class="page__title page__title--sm">Новое сообщение</h1>
+    <section class="card picker">
+      <h1 class="picker__title">Сообщение ${ui.draftNumber}</h1>
+      <h2 class="picker__subtitle">Выбери операции, которые войдут в сообщение</h2>
 
-    <section class="card messages">
-      <h2 class="messages__title">Тип сообщения</h2>
-      <div class="options">
-        ${Object.entries(MSG_TYPES).map(([k, d]) => `
-          <label class="option ${ui.createType === k ? 'is-active' : ''}">
-            <input type="radio" name="type" value="${k}" data-action="create-type" ${ui.createType === k ? 'checked' : ''}>
-            <b>${k}</b><span>${d}</span>
-          </label>`).join('')}
+      <div class="filters">
+        <label class="filters__search">
+          <input type="search" id="pick-search" placeholder="Лизингополучатель, номер договора лизинга, или номер записи" value="${esc(ui.pickQuery)}" aria-label="Поиск">
+        </label>
+        <label class="filters__select">
+          <select id="pick-kind" aria-label="Тип">
+            <option value="">Тип</option>
+            ${OP_KINDS.map((k) => `<option value="${k}" ${ui.pickKind === k ? 'selected' : ''}>${k}</option>`).join('')}
+          </select>
+        </label>
       </div>
+
+      <div id="list">${pickerList()}</div>
     </section>
 
-    <section class="card messages">
-      <div class="messages__head">
-        <h2 class="messages__title">Операции</h2>
-        <span class="ready" id="create-summary">${createSummary()}</span>
-      </div>
-      ${free.length
-        ? `<div id="list">${opsTable(free, { selectable: true })}</div>`
-        : '<div class="empty">Нет операций, готовых к отправке. <a class="link" href="#/operations?all">Посмотреть все операции</a></div>'}
-    </section>
-
-    <div class="form-actions">
-      <a class="btn btn--link" href="#/">Отмена</a>
-      <button class="btn btn--primary" type="button" id="create-submit" data-action="create" ${ui.selected.size ? '' : 'disabled'}>Создать сообщение</button>
+    <div class="tablebar">
+      <span id="pick-count">${pickCount()}</span>
+      <button class="btn btn--primary" type="button" id="create-submit" data-action="create" ${ui.selected.size ? '' : 'disabled'}>Сформировать</button>
     </div>`;
 }
 
-function createSummary() {
-  const n = ui.selected.size;
-  if (!n) return 'Выберите хотя бы одну операцию';
-  return `Выбрано <b>${nOps(n)}</b> на ${money(sumOf(state.ops.filter((o) => ui.selected.has(o.id))))}`;
+function pickerOps() {
+  const q = ui.pickQuery.trim().toLowerCase();
+  return freeOps().filter((o) => matches(o, q) && (!ui.pickKind || o.kind === ui.pickKind));
 }
 
+function pickerList() {
+  if (!freeOps().length) {
+    return '<div class="empty">Нет операций, готовых к отправке</div>';
+  }
+  return opsTable(pickerOps(), { selectable: true, empty: 'Ничего не найдено. Измените условия поиска' });
+}
+
+const pickCount = () => ui.selected.size ? `Выбрано ${ui.selected.size}` : 'Ничего не выбрано';
+
 function viewStatuses() {
-  setCrumbs([['Статусы']]);
+  setNav([['Статусы']]);
   return `
     <h1 class="page__title page__title--sm">Мой статус</h1>
     <p class="page__subtitle">От статуса зависит, будут ли тебе приходить новые задачи</p>
@@ -443,7 +493,7 @@ function viewStatuses() {
 }
 
 function viewNotFound() {
-  setCrumbs([['Не найдено']]);
+  setNav([['Не найдено']]);
   return `
     <h1 class="page__title page__title--sm">Страница не найдена</h1>
     <p class="page__subtitle">Возможно, сообщение было удалено.</p>
@@ -456,15 +506,10 @@ let currentRoute = '';
 
 function render({ keepScroll = false } = {}) {
   const route = location.hash.replace(/^#/, '') || '/';
-  const [path] = route.split('?');
-  const parts = path.split('/').filter(Boolean);
+  const parts = route.split('?')[0].split('/').filter(Boolean);
 
   if (route !== currentRoute) {
-    // при уходе с экранов выбора сбрасываем выделение
-    const wasPicking = /^\/(operations|create)/.test(currentRoute);
-    const isPicking = /^\/(operations|create)/.test(path);
-    if (!isPicking || !wasPicking) ui.selected.clear();
-    if (route === '/operations?all') ui.opsTab = 'all';
+    if (parts[0] !== 'create') { ui.draftNumber = null; ui.selected.clear(); }
     ui.opsLimit = 20;
   }
 
@@ -477,10 +522,17 @@ function render({ keepScroll = false } = {}) {
   else if (parts[0] === 'statuses') html = viewStatuses();
   else html = viewNotFound();
 
-  document.getElementById('app').innerHTML = html;
+  const app = document.getElementById('app');
+  app.innerHTML = html;
+  document.body.classList.toggle('has-tablebar', parts[0] === 'create');
+  syncIndeterminate();
   renderUser();
   if (route !== currentRoute && !keepScroll) window.scrollTo(0, 0);
   currentRoute = route;
+}
+
+function syncIndeterminate() {
+  document.querySelectorAll('[data-indeterminate]').forEach((c) => { c.indeterminate = true; });
 }
 
 function renderUser() {
@@ -537,9 +589,9 @@ function sendMessage(id) {
 function fixInn(opId) {
   const op = state.ops.find((o) => o.id === opId);
   openModal({
-    title: 'ИНН клиента',
+    title: 'ИНН лизингополучателя',
     body: `
-      <p>${esc(op.client)} · операция ${op.id}</p>
+      <p>${esc(op.client)} · запись ${op.id}</p>
       <label class="field">
         <span>ИНН</span>
         <input type="text" inputmode="numeric" maxlength="12" id="inn-input" placeholder="10 или 12 цифр" autocomplete="off">
@@ -561,21 +613,37 @@ function fixInn(opId) {
   });
 }
 
+function showContract(opId) {
+  const o = state.ops.find((x) => x.id === opId);
+  openModal({
+    title: `Договор лизинга ${o.contract}`,
+    body: `
+      <dl class="facts facts--modal">
+        <div><dt>Лизингополучатель</dt><dd>${esc(o.client)}</dd></div>
+        <div><dt>ИНН</dt><dd>${o.inn || '<span class="text-warn">не указан</span>'}</dd></div>
+        <div><dt>Дата выдачи ПЛ</dt><dd>${o.contractDate}</dd></div>
+        <div><dt>Сумма операции</dt><dd>${money(o.amount)}</dd></div>
+      </dl>`,
+    confirmText: 'Закрыть',
+    hideCancel: true,
+    onConfirm() {},
+  });
+}
+
 function createMessage() {
   const ids = [...ui.selected].filter((id) => state.ops.some((o) => o.id === id && !o.messageId));
   if (!ids.length) return;
-  const number = String(state.nextNumber++).padStart(8, '0');
-  state.messages.unshift({ id: number, number, date: today(), type: ui.createType, status: 'ready', sentAt: null });
-  state.ops.forEach((o) => { if (ids.includes(o.id)) o.messageId = number; });
-  ui.selected.clear();
+  const number = ui.draftNumber || nextNumber();
+  state.messages.unshift({ id: number, number, date: today(), type: 'FMO1', status: 'ready', sentAt: null });
+  state.ops.forEach((o) => { if (ids.includes(o.id)) { o.messageId = number; o.isNew = false; } });
   save();
   location.hash = `#/messages/${number}`;
-  toast(`Сообщение ${number} создано · ${nOps(ids.length)}`);
+  toast(`Сообщение ${number} сформировано · ${nOps(ids.length)}`);
 }
 
 /* ---------- Модалка и тосты ---------- */
 
-function openModal({ title, body, confirmText, danger, onConfirm }) {
+function openModal({ title, body, confirmText, danger, hideCancel, onConfirm }) {
   const prevFocus = document.activeElement;
   const wrap = document.createElement('div');
   wrap.className = 'modal';
@@ -585,7 +653,7 @@ function openModal({ title, body, confirmText, danger, onConfirm }) {
       <h2 id="modal-title" class="modal__title">${esc(title)}</h2>
       <div class="modal__body">${body}</div>
       <div class="modal__actions">
-        <button type="button" class="btn btn--secondary" data-close>Отмена</button>
+        ${hideCancel ? '' : '<button type="button" class="btn btn--secondary" data-close>Отмена</button>'}
         <button type="button" class="btn ${danger ? 'btn--danger-solid' : 'btn--primary'}" data-confirm>${esc(confirmText)}</button>
       </div>
     </div>`;
@@ -625,17 +693,17 @@ function toast(text, { action, onAction } = {}) {
 
 document.addEventListener('click', (e) => {
   const actionEl = e.target.closest('[data-action]');
-  if (actionEl) {
+  if (actionEl && actionEl.type !== 'checkbox' && actionEl.type !== 'radio') {
     const { action, id, op, filter, tab } = actionEl.dataset;
     switch (action) {
       case 'delete': e.preventDefault(); return deleteMessage(id);
       case 'send': return sendMessage(id);
       case 'fix-inn': return fixInn(op);
+      case 'contract': e.preventDefault(); return showContract(op);
       case 'create': return createMessage();
       case 'msg-filter': ui.msgFilter = filter; return render({ keepScroll: true });
       case 'ops-tab': ui.opsTab = tab; ui.opsLimit = 20; return render({ keepScroll: true });
       case 'more': ui.opsLimit += 20; return refreshList();
-      case 'clear-selection': ui.selected.clear(); return refreshList();
       case 'toggle-power':
         state.userStatus = state.userStatus === 'online' ? 'offline' : 'online';
         save(); render({ keepScroll: true });
@@ -645,13 +713,19 @@ document.addEventListener('click', (e) => {
           title: 'Сбросить данные прототипа?',
           body: '<p>Все созданные, удалённые и отправленные сообщения вернутся к исходному виду.</p>',
           confirmText: 'Сбросить',
-          onConfirm() { state = makeSeed(); save(); ui.selected.clear(); location.hash = '#/'; render(); toast('Данные сброшены'); },
+          onConfirm() { state = makeSeed(); save(); ui.selected.clear(); ui.draftNumber = null; location.hash = '#/'; render(); toast('Данные сброшены'); },
         });
     }
   }
-  // клик по строке таблицы открывает сообщение
+  // клик по строке таблицы сообщений открывает сообщение
   const row = e.target.closest('tr[data-href]');
-  if (row && !e.target.closest('a, button, input, label')) location.hash = row.dataset.href;
+  if (row && !e.target.closest('a, button, input, label')) { location.hash = row.dataset.href; return; }
+  // клик по строке при выборе операций переключает галочку
+  const pickRow = e.target.closest('.table--ops tbody tr');
+  if (pickRow && !e.target.closest('a, button, input, label')) {
+    const box = pickRow.querySelector('[data-action="select-op"]');
+    if (box) { box.checked = !box.checked; box.dispatchEvent(new Event('change', { bubbles: true })); }
+  }
 });
 
 document.addEventListener('change', (e) => {
@@ -660,23 +734,25 @@ document.addEventListener('change', (e) => {
     e.target.checked ? ui.selected.add(op) : ui.selected.delete(op);
     refreshList();
   } else if (action === 'select-all') {
-    const rows = [...document.querySelectorAll('[data-action="select-op"]')].map((c) => c.dataset.op);
-    rows.forEach((id) => (e.target.checked ? ui.selected.add(id) : ui.selected.delete(id)));
+    const visible = pickerOps().map((o) => o.id);
+    const allOn = visible.every((id) => ui.selected.has(id));
+    visible.forEach((id) => (allOn ? ui.selected.delete(id) : ui.selected.add(id)));
     refreshList();
-  } else if (action === 'create-type') {
-    ui.createType = e.target.value;
-    document.querySelectorAll('.option').forEach((l) => l.classList.toggle('is-active', l.contains(e.target)));
   } else if (action === 'set-status') {
     state.userStatus = e.target.value;
     save();
     render({ keepScroll: true });
     toast(`Статус: ${USER_STATUS[state.userStatus].label}`);
+  } else if (e.target.id === 'pick-kind') {
+    ui.pickKind = e.target.value;
+    refreshList();
   }
 });
 
 document.addEventListener('input', (e) => {
   if (e.target.id === 'msg-search') { ui.msgQuery = e.target.value; refreshList(); }
   if (e.target.id === 'ops-search') { ui.opsQuery = e.target.value; ui.opsLimit = 20; refreshList(); }
+  if (e.target.id === 'pick-search') { ui.pickQuery = e.target.value; refreshList(); }
 });
 
 // Перерисовываем только список, чтобы не терять фокус в поиске
@@ -684,14 +760,13 @@ function refreshList() {
   const list = document.getElementById('list');
   const route = currentRoute.split('?')[0];
   if (route === '/messages') list.innerHTML = messagesList();
-  else if (route === '/operations') {
-    list.innerHTML = operationsList();
-    document.getElementById('selbar').innerHTML = selectionBar();
-  } else if (route === '/create') {
-    list.innerHTML = opsTable(freeOps(), { selectable: true });
-    document.getElementById('create-summary').innerHTML = createSummary();
+  else if (route === '/operations') list.innerHTML = operationsList();
+  else if (route === '/create') {
+    list.innerHTML = pickerList();
+    document.getElementById('pick-count').textContent = pickCount();
     document.getElementById('create-submit').disabled = !ui.selected.size;
   }
+  syncIndeterminate();
 }
 
 window.addEventListener('hashchange', () => render());
