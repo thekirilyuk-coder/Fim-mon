@@ -505,6 +505,67 @@ body.has-tablebar .proto-footer { display: none; }
 .facts--modal { grid-template-columns: 1fr 1fr; margin-top: 16px; }
 .facts--modal dd { font-size: 15px; }
 
+/* ---------- Список операций: фильтры (макет «Операции») ---------- */
+.filters--ops { grid-template-columns: repeat(3, 1fr); }
+.filters--ops .filters__row { grid-column: 1 / -1; }
+.filters--ops .filters__row input { border-radius: 12px 12px 0 0; height: 76px; }
+.fsel {
+  position: relative; height: 76px;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 0 84px 0 22px;
+  background: var(--secondary-bg);
+}
+.filters--ops > .fsel:nth-of-type(1) { border-radius: 0 0 0 12px; }
+.filters--ops > .fsel:last-child { border-radius: 0 0 12px 0; }
+.fsel__label { font-size: 17px; color: var(--text-muted); transition: font-size .12s; }
+.fsel__value { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fsel:not(.has-value) .fsel__value { display: none; }
+.fsel.has-value .fsel__label { font-size: 14px; margin-bottom: 2px; }
+.fsel select {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; cursor: pointer; border: 0; font-size: 16px;
+}
+.fsel:focus-within { box-shadow: inset 0 0 0 2px #c9ccd1; }
+.fsel__chevron, .fsel__icon {
+  position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
+  width: 22px; height: 22px; pointer-events: none;
+  fill: none; stroke: #666; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.fsel__icon svg { width: 26px; height: 26px; fill: none; stroke: #8a8f96; stroke-width: 1.6; stroke-linecap: round; }
+.fsel__icon { width: 26px; height: 26px; }
+.fsel__clear {
+  position: absolute; right: 54px; top: 50%; transform: translateY(-50%); z-index: 2;
+  width: 26px; height: 26px; border: 0; border-radius: 6px; background: none; padding: 0;
+  display: grid; place-items: center;
+}
+.fsel__clear:hover { background: var(--secondary-hover); }
+.fsel__clear svg { width: 18px; height: 18px; fill: none; stroke: #666; stroke-width: 2.2; stroke-linecap: round; }
+.fsel--period .fsel__clear { right: 60px; }
+.fsel__trigger {
+  position: absolute; inset: 0; z-index: 1;
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
+  padding: 0 84px 0 22px; border: 0; background: none; text-align: left; color: var(--text);
+}
+.fsel__trigger:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; border-radius: inherit; }
+
+.popover {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 30;
+  width: 360px; max-width: calc(100vw - 32px);
+  padding: 20px; background: #fff; border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(0,0,0,.18); animation: pop .15s;
+}
+.popover__fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.popover__fields .field { margin-top: 0; }
+.popover__fields input { padding: 0 10px; }
+.popover__presets { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.popover__presets .chip { height: 32px; font-size: 13px; }
+.popover__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
+.found { margin: 20px 0 0; font-size: 13px; color: var(--text-muted); }
+.empty__btn { margin-top: 16px; }
+.table--ops .col-client { max-width: 340px; }
+.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ---------- Адаптив ---------- */
 @media (max-width: 720px) {
   .page { padding-top: 28px; }
@@ -527,4 +588,8 @@ body.has-tablebar .proto-footer { display: none; }
   .filters { grid-template-columns: 1fr; gap: 8px; }
   .filters input, .filters select { border-radius: 12px; height: 52px; }
   .tablebar .btn { height: 52px; }
+  .filters--ops { grid-template-columns: 1fr; }
+  .filters--ops .filters__row input, .filters--ops > .fsel { border-radius: 12px !important; }
+  .fsel { height: 64px; }
+  .table--ops .col-client { max-width: 220px; }
 }
