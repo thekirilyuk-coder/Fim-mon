@@ -1744,7 +1744,7 @@ function operationsList() {
       <button class="btn btn--secondary btn--sm empty__btn" type="button" data-action="reset-filters">Сбросить фильтры</button></div>`;
   }
   return `
-    ${opsTable(shown, { review: ui.opsClass !== 'mandatory', showMessage: ui.opsClass !== 'suspicious' })}
+    ${opsTable(shown, { review: ui.opsClass !== 'mandatory' })}
     ${list.length > shown.length
       ? `<div class="more"><button class="btn btn--secondary" type="button" data-action="more">Показать ещё · осталось ${list.length - shown.length}</button></div>`
       : ''}`;
