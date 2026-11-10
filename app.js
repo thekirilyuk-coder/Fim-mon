@@ -269,6 +269,7 @@ const ui = {
   selected: new Set(),
   draftNumber: null,
   draft: null,
+  drawerId: null,
 };
 
 function load() {
@@ -629,70 +630,105 @@ function viewOperations() {
 
 /* --- Карточка операции сомнительного характера --- */
 
-function viewOperation(id) {
-  const o = opById(id);
-  if (!o) return viewNotFound();
-  setNav([], { tab: { label: `Операция ${o.contract}`, closeHref: '#/operations' } });
+// Панель операции (Drawer) справа поверх страницы
+function drawerHtml(o) {
   const r = OSH_REASONS[o.reason];
   const msg = o.messageId && msgById(o.messageId);
   const locked = !!msg; // операция уже в сообщении — заключение не меняем
   // Черновик заключения: применяется только кнопкой «Сохранить»
   if (isOsh(o) && (!ui.draft || ui.draft.opId !== o.id)) ui.draft = draftOf(o);
   const draft = ui.draft;
-  const others = pendingOsh().filter((x) => x.id !== o.id);
-  const next = others[0];
+  const next = pendingOsh().find((x) => x.id !== o.id);
 
   return `
-    <section class="card picker op-page">
-    <a class="back" href="#/operations">${ICON.back}Операции</a>
-    <div class="page-head">
-      <div>
-        <h1 class="picker__title">${esc(o.client)}</h1>
-        <div class="page-head__status">
-          ${isOsh(o) ? `<span class="tag">${OSH_REASONS[o.reason].label}</span>` : ''}
+    <div class="drawer__panel" role="dialog" aria-labelledby="drawer-title" tabindex="-1">
+      <header class="drawer__head">
+        <div class="drawer__caption">Операция · ${o.contract}</div>
+        <h2 id="drawer-title" class="drawer__title">${esc(o.client)}</h2>
+        <div class="drawer__tags">
+          ${isOsh(o) ? `<span class="tag">${r.label}</span>` : ''}
           <span class="tag">Выявлено ${o.detectedDate}</span>
         </div>
-      </div>
-    </div>
+        <button type="button" class="drawer__close" data-action="drawer-close" aria-label="Закрыть">${ICON.close}</button>
+      </header>
 
-    <div class="op-grid">
-      <section class="op-section">
-        <h2 class="details__title">Операция</h2>
-        <dl class="facts facts--op">
-          <div><dt>Лизингополучатель</dt><dd>${esc(o.client)}</dd></div>
-          <div><dt>ИНН</dt><dd>${o.inn || '<span class="text-warn">не указан</span>'}</dd></div>
-          <div><dt>Договор лизинга</dt><dd>${o.contract}<small>выдан ${o.contractDate}</small></dd></div>
-          <div><dt>Сумма</dt><dd>${o.reason === 'thirdParty' ? kop(o.details.payment.amount) : money(o.amount)}</dd></div>
-        </dl>
-      </section>
-
-      ${isOsh(o) ? `
+      <div class="drawer__body">
         <section class="op-section">
-          <h2 class="details__title">${o.reason === 'thirdParty' ? 'Оплата третьим лицом' : r.label}</h2>
-          ${reasonDetails(o)}
-        </section>` : ''}
-    </div>
+          <h3 class="drawer__section">Операция</h3>
+          <dl class="facts facts--op">
+            <div><dt>Лизингополучатель</dt><dd>${esc(o.client)}</dd></div>
+            <div><dt>ИНН</dt><dd>${o.inn || '<span class="text-warn">не указан</span>'}</dd></div>
+            <div><dt>Договор лизинга</dt><dd>${o.contract}<small>выдан ${o.contractDate}</small></dd></div>
+            <div><dt>Сумма</dt><dd>${o.reason === 'thirdParty' ? kop(o.details.payment.amount) : money(o.amount)}</dd></div>
+          </dl>
+        </section>
 
-    ${isOsh(o) ? `
-      <section class="op-section verdict" id="verdict">
-        <h2 class="details__title">Комментарий и документы</h2>
-        ${notesBlock(o, locked)}
-        <h3 class="verdict__sub verdict__sub--switch">Заключение</h3>
-        <div class="segmented ${locked ? 'is-disabled' : ''}" role="radiogroup" aria-label="Заключение по операции">
-          ${Object.entries(VERDICTS).map(([v, d]) => `
-            <button type="button" role="radio" aria-checked="${(locked ? o.verdict : draft.verdict) === v}"
-              class="segmented__item segmented__item--${d.cls} ${(locked ? o.verdict : draft.verdict) === v ? 'is-active' : ''}"
-              data-action="decide" data-op="${o.id}" data-verdict="${v}" ${locked ? 'disabled' : ''}>
-              <span class="segmented__dot"></span>${d.label}
-            </button>`).join('')}
-        </div>
-        <div class="verdict__actions">
-          ${locked ? '' : `<button type="button" class="btn btn--primary" data-action="draft-save" data-op="${o.id}">Сохранить</button>`}
+        ${isOsh(o) ? `
+          <section class="op-section">
+            <h3 class="drawer__section">${o.reason === 'thirdParty' ? 'Оплата третьим лицом' : r.label}</h3>
+            ${reasonDetails(o)}
+          </section>
+
+          <section class="op-section verdict" id="verdict">
+            <h3 class="drawer__section">Комментарий и документы</h3>
+            ${notesBlock(o, locked)}
+            <h3 class="drawer__section verdict__sub--switch">Заключение</h3>
+            <div class="segmented ${locked ? 'is-disabled' : ''}" role="radiogroup" aria-label="Заключение по операции">
+              ${Object.entries(VERDICTS).map(([v, d]) => `
+                <button type="button" role="radio" aria-checked="${(locked ? o.verdict : draft.verdict) === v}"
+                  class="segmented__item segmented__item--${d.cls} ${(locked ? o.verdict : draft.verdict) === v ? 'is-active' : ''}"
+                  data-action="decide" data-op="${o.id}" data-verdict="${v}" ${locked ? 'disabled' : ''}>
+                  <span class="segmented__dot"></span>${d.label}
+                </button>`).join('')}
+            </div>
+          </section>` : ''}
+      </div>
+
+      ${(isOsh(o) && !locked) || next ? `
+        <footer class="drawer__foot">
+          ${isOsh(o) && !locked ? `<button type="button" class="btn btn--primary" data-action="draft-save" data-op="${o.id}">Сохранить</button>` : ''}
           ${next ? `<a class="btn btn--secondary" href="#/operations/${next.id}">Следующая операция →</a>` : ''}
-        </div>
-      </section>` : ''}
+        </footer>` : ''}
+    </div>`;
+}
 
-    </section>`;
+function renderDrawer() {
+  const el = document.getElementById('drawer');
+  const o = ui.drawerId && opById(ui.drawerId);
+  if (!o) {
+    ui.drawerId = null;
+    el.hidden = true;
+    el.innerHTML = '';
+  } else {
+    const body = el.querySelector('.drawer__body');
+    const scroll = body && el.dataset.op === o.id ? body.scrollTop : 0;
+    el.innerHTML = drawerHtml(o);
+    el.dataset.op = o.id;
+    el.hidden = false;
+    el.querySelector('.drawer__body').scrollTop = scroll;
+  }
+  // подсветить строку открытой операции
+  document.querySelectorAll('tr[data-href^="#/operations/"]').forEach((tr) => {
+    tr.classList.toggle('is-current', tr.dataset.href === `#/operations/${ui.drawerId}`);
+  });
+}
+
+function openDrawer(id) {
+  const wasOpen = !!ui.drawerId;
+  if (ui.drawerId !== id) ui.draft = null;
+  ui.drawerId = id;
+  renderDrawer();
+  const panel = document.querySelector('.drawer__panel');
+  if (panel) {
+    panel.classList.toggle('is-entering', !wasOpen);
+    panel.focus({ preventScroll: true });
+  }
+}
+
+function closeDrawer() {
+  ui.drawerId = null;
+  ui.draft = null;
+  renderDrawer();
 }
 
 function reasonDetails(o) {
@@ -997,20 +1033,22 @@ let currentRoute = '';
 let currentPath = (() => { try { return location.hash.replace(/^#/, '') || '/'; } catch (e) { return '/'; } })();
 
 function render({ keepScroll = false } = {}) {
+  // прямая ссылка на операцию: список операций и открытая панель
+  const deep = currentPath.match(/^\/operations\/([^/?]+)/);
+  if (deep) { currentPath = '/operations'; ui.drawerId = decodeURIComponent(deep[1]); }
   const route = currentPath;
   const parts = route.split('?')[0].split('/').filter(Boolean);
 
   if (route !== currentRoute) {
     if (parts[0] !== 'create') { ui.draftNumber = null; ui.selected.clear(); }
     ui.opsLimit = 20;
-    ui.draft = null;
+    if (!deep) { ui.drawerId = null; ui.draft = null; }
   }
 
   let html;
   if (!parts.length) html = viewHome();
   else if (parts[0] === 'messages' && parts[1]) html = viewMessage(decodeURIComponent(parts[1]));
   else if (parts[0] === 'messages') html = viewMessages();
-  else if (parts[0] === 'operations' && parts[1]) html = viewOperation(decodeURIComponent(parts[1]));
   else if (parts[0] === 'operations') html = viewOperations();
   else if (parts[0] === 'create') html = viewCreate();
   else if (parts[0] === 'statuses') html = viewStatuses();
@@ -1023,6 +1061,7 @@ function render({ keepScroll = false } = {}) {
   document.body.classList.toggle('is-column', parts[0] === 'create' || parts[0] === 'operations');
   syncIndeterminate();
   renderUser();
+  renderDrawer();
   if (route !== currentRoute && !keepScroll) window.scrollTo(0, 0);
   currentRoute = route;
 }
@@ -1216,6 +1255,7 @@ document.addEventListener('click', (e) => {
         return;
       }
       case 'draft-save': return saveDraft(op);
+      case 'drawer-close': return closeDrawer();
       case 'preview-file': {
         const list = op ? opById(op).verdictFiles : ui.draft.files;
         return previewFile(list[Number(actionEl.dataset.file)]);
@@ -1339,6 +1379,8 @@ function refreshList() {
 // Навигация без перехода по адресу: так прототип работает и во встроенном
 // просмотре, где переходы по ссылкам заблокированы.
 function go(path) {
+  const op = (path || '').match(/^\/operations\/([^/?]+)/);
+  if (op) return openDrawer(decodeURIComponent(op[1]));
   currentPath = path || '/';
   try { history.pushState({ path: currentPath }, '', '#' + currentPath); } catch (e) { /* просмотр без истории */ }
   render();
@@ -1371,10 +1413,9 @@ document.addEventListener('drop', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && ui.classMenuOpen && !document.querySelector('.modal')) {
-    ui.classMenuOpen = false;
-    render({ keepScroll: true });
-  }
+  if (e.key !== 'Escape' || document.querySelector('.modal')) return;
+  if (ui.classMenuOpen) { ui.classMenuOpen = false; render({ keepScroll: true }); return; }
+  if (ui.drawerId) closeDrawer();
 });
 
 window.addEventListener('popstate', () => {
