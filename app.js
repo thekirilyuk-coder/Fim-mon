@@ -1,7 +1,7 @@
 /* Кликабельный прототип «Сообщения РФМ».
    Все данные вымышленные и живут в localStorage этого браузера. */
 
-const STORAGE_KEY = 'finmon-prototype-v3';
+const STORAGE_KEY = 'finmon-prototype-v4';
 
 /* ---------- Справочники ---------- */
 
@@ -39,6 +39,35 @@ const CLIENTS = [
   ['ООО «Картофель фри»', '5029123451'], ['ООО «Гамбургер без лука»', '6164123452'],
   ['ООО «Королевский чизбургер»', '3664123453'],
 ];
+
+// Причины, по которым система относит операцию к сомнительным (ОСХ)
+const OSH_REASONS = {
+  thirdParty: {
+    label: 'Оплата третьими лицами',
+    hint: 'Лизинговые платежи вносит не лизингополучатель, а другое лицо.',
+  },
+  leaseback: {
+    label: 'Возвратный лизинг',
+    hint: 'Предмет лизинга куплен у самого лизингополучателя и сразу передан ему же в лизинг.',
+  },
+  earlyEnd: {
+    label: 'Досрочное завершение',
+    hint: 'Договор лизинга закрыт досрочно после короткого срока пользования.',
+  },
+};
+
+const VERDICTS = {
+  pending:     { label: 'На проверке',    cls: 'pending' },
+  justified:   { label: 'Обоснована',     cls: 'justified' },
+  unjustified: { label: 'Не обоснована',  cls: 'unjustified' },
+};
+
+const ASSETS = [
+  'Грузовой тягач, 2021 г.', 'Экскаватор-погрузчик, 2020 г.', 'Легковой автомобиль, 2023 г.',
+  'Фронтальный погрузчик, 2022 г.', 'Производственная линия упаковки, 2022 г.', 'Полуприцеп-рефрижератор, 2021 г.',
+];
+
+const CURRENT_USER = 'Алексей П.';
 
 /* ---------- Начальные данные ---------- */
 
@@ -87,7 +116,7 @@ function makeSeed() {
       contract: 'ААА ' + pad(7000000 + Math.floor(rnd() * 999999), 7),
       contractDate,
       kind: rnd() < .75 ? OP_KINDS[0] : pick(OP_KINDS.slice(1)),
-      cls: rnd() < .7 ? 'suspicious' : 'mandatory',
+      cls: 'mandatory',
       appDate: date,
       overdueDays: Math.floor(rnd() * 4),
       detectedDate: date,
@@ -98,8 +127,57 @@ function makeSeed() {
     };
   };
 
+  // Данные, которые пользователь изучает в карточке ОСХ
+  const addReason = (o, reason) => {
+    o.cls = 'suspicious';
+    o.reason = reason || pick(Object.keys(OSH_REASONS));
+    o.verdict = 'pending';
+    if (o.reason === 'thirdParty') {
+      const [payer, payerInn] = pick(CLIENTS.filter(([c]) => c !== o.client));
+      const count = 2 + Math.floor(rnd() * 3);
+      const part = Math.round(o.amount / (count + 1));
+      o.details = {
+        payer, payerInn,
+        payments: Array.from({ length: count }, (_, i) => ({
+          date: shiftDate(o.appDate, (count - i) * 30),
+          amount: part,
+          byThird: i !== 0,
+        })),
+      };
+    } else if (o.reason === 'leaseback') {
+      o.details = {
+        asset: pick(ASSETS),
+        seller: o.client, sellerInn: o.inn,
+        saleContract: 'ДКП-' + pad(Math.floor(rnd() * 99999), 5),
+        saleDate: shiftDate(o.contractDate, 2),
+        price: Math.round(o.amount * (0.9 + rnd() * 0.15)),
+      };
+    } else {
+      const planned = pick([24, 36, 48, 60]);
+      const used = 2 + Math.floor(rnd() * 5);
+      o.details = {
+        asset: pick(ASSETS),
+        startDate: o.contractDate,
+        endDate: shiftDate(o.contractDate, -used * 30),
+        usedMonths: used,
+        plannedMonths: planned,
+        buyout: Math.round(o.amount * (0.6 + rnd() * 0.3)),
+      };
+    }
+    return o;
+  };
+  const decide = (o, verdict, comment) => {
+    Object.assign(o, { verdict, verdictComment: comment, verdictBy: CURRENT_USER, verdictAt: o.appDate });
+    return o;
+  };
+
   const messages = plan.map(([number, status, date, count]) => {
-    for (let i = 0; i < count; i++) ops.push(makeOp(date, number));
+    for (let i = 0; i < count; i++) {
+      const o = makeOp(date, number);
+      // ОСХ попадают в сообщения только после заключения «не обоснована»
+      if (rnd() < .6) decide(addReason(o), 'unjustified', 'Экономический смысл операции не подтверждён.');
+      ops.push(o);
+    }
     return { id: number, number, date, type: 'FMO1', status, sentAt: status === 'sent' ? date : null };
   });
 
@@ -114,7 +192,23 @@ function makeSeed() {
     if (i % 3 !== 1) o.prevMessage = pick(['00001103', '00001101', '00001099']);
     // первичные операции, которые ещё никуда не отправлялись, пока без номера записи
     if (!o.prevMessage && o.kind === OP_KINDS[0]) o.record = null;
+    if (i % 2 === 0) decide(addReason(o), 'unjustified', 'Платежи третьего лица не подтверждены документами.');
     free.push(o);
+  }
+
+  // ОСХ, по которым пользователь ещё не дал заключение, и уже обоснованные
+  const reasons = Object.keys(OSH_REASONS);
+  for (let i = 0; i < 9; i++) {
+    const o = addReason(makeOp('10.01.2025', null), reasons[i % 3]);
+    o.isNew = i < 3;
+    o.record = null;
+    free.push(o);
+  }
+  for (let i = 0; i < 3; i++) {
+    free.push(decide(addReason(makeOp('08.01.2025', null), reasons[i]), 'justified',
+      ['Плательщик — поручитель по договору, есть письмо лизингополучателя.',
+       'Возвратный лизинг для пополнения оборотных средств, сделка по рыночной цене.',
+       'Досрочный выкуп за счёт кредита банка, документы приложены.'][i]));
   }
   ops.push(...free.reverse());
 
@@ -126,7 +220,8 @@ function makeSeed() {
 let state = load();
 const ui = {
   msgFilter: 'all', msgQuery: '',
-  opsQuery: '', opsClass: 'suspicious', opsKind: '', opsFrom: '', opsTo: '', opsLimit: 20,
+  opsQuery: '', opsClass: 'suspicious', opsKind: '', opsVerdict: '', opsFrom: '', opsTo: '', opsLimit: 20,
+  verdictDraft: null,
   periodOpen: false,
   pickQuery: '', pickKind: '',
   selected: new Set(),
@@ -149,6 +244,12 @@ function save() {
 
 const opsOf = (id) => state.ops.filter((o) => o.messageId === id);
 const freeOps = () => state.ops.filter((o) => !o.messageId);
+const isOsh = (o) => o.cls === 'suspicious';
+// В сообщение можно включить операцию обязательного контроля или ОСХ с заключением «не обоснована»
+const canSend = (o) => !isOsh(o) || o.verdict === 'unjustified';
+const readyOps = () => freeOps().filter(canSend);
+const pendingOsh = () => state.ops.filter((o) => isOsh(o) && o.verdict === 'pending');
+const opById = (id) => state.ops.find((o) => o.id === id);
 const msgById = (id) => state.messages.find((m) => m.id === id);
 const hasIssue = (m) => m.status === 'ready' && opsOf(m.id).some((o) => !o.inn);
 const sumOf = (ops) => ops.reduce((s, o) => s + o.amount, 0);
@@ -186,6 +287,7 @@ const ICON = {
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
 };
 
+const verdictBadge = (o) => `<span class="vbadge vbadge--${VERDICTS[o.verdict].cls}">${VERDICTS[o.verdict].label}</span>`;
 const statusPill = (m) => `<span class="status status--${MSG_STATUS[m.status].cls}">${MSG_STATUS[m.status].label}</span>`;
 const warnMark = (m) => hasIssue(m) ? `<span class="warn" title="Требует внимания" aria-label="Требует внимания">${ICON.warn}</span>` : '';
 
@@ -215,7 +317,7 @@ function messagesTable(list, { empty = 'Сообщений нет' } = {}) {
 
 /* ---------- Таблица операций (как в макете выбора операций) ---------- */
 
-function opsTable(ops, { selectable = false, fixable = false, showMessage = true, empty = 'Операций нет' } = {}) {
+function opsTable(ops, { selectable = false, fixable = false, showMessage = true, review = false, empty = 'Операций нет' } = {}) {
   if (!ops.length) return `<div class="empty">${empty}</div>`;
   const checkedCount = selectable ? ops.filter((o) => ui.selected.has(o.id)).length : 0;
   const allState = checkedCount === 0 ? '' : checkedCount === ops.length ? 'checked' : 'data-indeterminate';
@@ -230,12 +332,14 @@ function opsTable(ops, { selectable = false, fixable = false, showMessage = true
           <th>Дней просрочки<br>и дата выявления</th>
           <th>Сумма, ₽</th>
           ${showMessage ? '<th>Номер сообщения</th>' : ''}
+          ${review ? '<th>Проверка ОСХ</th>' : ''}
         </tr></thead>
         <tbody>
           ${ops.map((o) => {
             const msg = o.messageId || o.prevMessage;
+            const link = review && isOsh(o);
             return `
-            <tr class="${selectable && ui.selected.has(o.id) ? 'is-selected' : ''}">
+            <tr class="${selectable && ui.selected.has(o.id) ? 'is-selected' : ''} ${link ? 'is-link' : ''}" ${link ? `data-href="#/operations/${o.id}"` : ''}>
               ${selectable ? `<td class="col-check"><input type="checkbox" class="check" data-action="select-op" data-op="${o.id}" ${ui.selected.has(o.id) ? 'checked' : ''} aria-label="Выбрать: ${esc(o.client)}"></td>` : ''}
               <td class="col-client">
                 <div class="ellipsis" title="${esc(o.client)}">${esc(o.client)}</div>
@@ -252,6 +356,9 @@ function opsTable(ops, { selectable = false, fixable = false, showMessage = true
               <td><div>${o.overdueDays}</div><div class="sub">${o.detectedDate}</div></td>
               <td>${num(o.amount)}</td>
               ${showMessage ? `<td>${msg ? `<a class="link" href="#/messages/${msg}">${msg}</a>` : '<span class="muted">—</span>'}</td>` : ''}
+              ${review ? `<td>${isOsh(o)
+                ? `<div class="review-cell">${verdictBadge(o)}<span class="sub">${OSH_REASONS[o.reason].label}</span></div>`
+                : '<span class="muted">—</span>'}</td>` : ''}
             </tr>`;
           }).join('')}
         </tbody>
@@ -283,7 +390,8 @@ function setNav(items, { tab } = {}) {
 
 function viewHome() {
   setNav([]);
-  const free = freeOps().length;
+  const free = readyOps().length;
+  const pending = pendingOsh().length;
   return `
     <h1 class="page__title">Моя работа</h1>
     <p class="page__subtitle">Здесь собраны твои рабочие инструменты</p>
@@ -307,6 +415,13 @@ function viewHome() {
           <a class="btn btn--primary" href="#/create">Создать сообщение</a>
         </div>
       </div>
+      ${pending ? `
+        <a class="osh-banner" href="#/operations?review">
+          <span class="osh-banner__icon">${ICON.warn}</span>
+          <span><b>${nOps(pending)} сомнительного характера ${plural(pending, ['ждёт', 'ждут', 'ждут'])} твоего заключения</b>
+          <span class="osh-banner__hint">Пока нет заключения, операция не попадёт в сообщение</span></span>
+          <span class="osh-banner__go">Проверить</span>
+        </a>` : ''}
       ${messagesTable(state.messages.slice(0, 4))}
       <p class="messages__total">Всего ${nMsgs(state.messages.length)} и ${nOps(state.ops.length)}</p>
       <div class="messages__links">
@@ -399,7 +514,7 @@ function viewMessage(id) {
 
     <section class="card messages">
       <h2 class="messages__title">Операции в сообщении</h2>
-      ${opsTable(ops, { fixable: m.status === 'ready', showMessage: false })}
+      ${opsTable(ops, { fixable: m.status === 'ready', showMessage: false, review: ops.some(isOsh) })}
     </section>`;
 }
 
@@ -470,8 +585,199 @@ function viewOperations() {
         </div>
       </div>
 
+      ${ui.opsClass === 'suspicious' ? verdictChips() : ''}
       <div id="list">${operationsList()}</div>
     </section>`;
+}
+
+// Быстрый фильтр по заключению — только для класса ОСХ
+function verdictChips() {
+  const osh = state.ops.filter(isOsh);
+  const count = (v) => osh.filter((o) => o.verdict === v).length;
+  const chips = [['', 'Все', osh.length], ...Object.entries(VERDICTS).map(([k, v]) => [k, v.label, count(k)])];
+  return `
+    <div class="chips verdict-chips" role="tablist" aria-label="Заключение">
+      ${chips.map(([k, l, c]) => `
+        <button type="button" class="chip ${ui.opsVerdict === k ? 'is-active' : ''}" data-action="verdict-filter" data-filter="${k}" role="tab" aria-selected="${ui.opsVerdict === k}">
+          ${l} <span class="chip__count">${c}</span>
+        </button>`).join('')}
+    </div>`;
+}
+
+/* --- Карточка операции сомнительного характера --- */
+
+function viewOperation(id) {
+  const o = opById(id);
+  if (!o) return viewNotFound();
+  setNav([], { tab: { label: `Операция ${o.contract}`, closeHref: '#/operations' } });
+  const r = OSH_REASONS[o.reason];
+  const msg = o.messageId && msgById(o.messageId);
+  const locked = !!msg; // операция уже в сообщении — заключение не меняем
+  const editing = isOsh(o) && !locked && (o.verdict === 'pending' || ui.verdictDraft);
+  const others = pendingOsh().filter((x) => x.id !== o.id);
+  const next = others[0];
+
+  return `
+    <a class="back" href="#/operations">${ICON.back}Операции</a>
+    <div class="page-head">
+      <div>
+        <h1 class="page__title page__title--sm">${esc(o.client)}</h1>
+        <div class="page-head__status">
+          ${isOsh(o) ? `<span class="tag tag--osh">ОСХ</span> ${verdictBadge(o)}` : `<span class="tag">${OP_CLASSES[o.cls]}</span>`}
+        </div>
+      </div>
+    </div>
+
+    ${isOsh(o) ? `
+      <div class="callout callout--info">
+        <span class="callout__icon">${ICON.warn}</span>
+        <div class="callout__body">
+          <b>Система отнесла операцию к сомнительным: ${r.label.toLowerCase()}</b>
+          <p>${r.hint} Изучи данные и дай заключение.</p>
+        </div>
+      </div>` : ''}
+
+    <div class="op-grid">
+      <section class="card details">
+        <h2 class="details__title">Операция</h2>
+        <dl class="facts facts--2">
+          <div><dt>Лизингополучатель</dt><dd>${esc(o.client)}</dd></div>
+          <div><dt>ИНН</dt><dd>${o.inn || '<span class="text-warn">не указан</span>'}</dd></div>
+          <div><dt>Договор лизинга</dt><dd>${o.contract}<small>выдан ${o.contractDate}</small></dd></div>
+          <div><dt>Тип</dt><dd>${o.kind}</dd></div>
+          <div><dt>Номер записи</dt><dd>${o.record || '—'}<small>АПП ${o.appDate}</small></dd></div>
+          <div><dt>Дней просрочки</dt><dd>${o.overdueDays}<small>выявлено ${o.detectedDate}</small></dd></div>
+          <div><dt>Сумма</dt><dd>${money(o.amount)}</dd></div>
+          <div><dt>Сообщение</dt><dd>${msg ? `<a class="link" href="#/messages/${msg.id}">${msg.number}</a><small>${MSG_STATUS[msg.status].label}</small>` : '—'}</dd></div>
+        </dl>
+      </section>
+
+      ${isOsh(o) ? `
+        <section class="card details">
+          <h2 class="details__title">${r.label}</h2>
+          ${reasonDetails(o)}
+        </section>` : ''}
+    </div>
+
+    ${isOsh(o) ? `
+      <section class="card details verdict" id="verdict">
+        <h2 class="details__title">Заключение</h2>
+        ${editing ? verdictForm(o) : verdictResult(o, msg, locked)}
+      </section>` : ''}
+
+    ${next ? `
+      <div class="next-op">
+        <span>Ещё ${nOps(others.length)} ${plural(others.length, ['ждёт', 'ждут', 'ждут'])} заключения</span>
+        <a class="btn btn--secondary btn--sm" href="#/operations/${next.id}">Следующая операция →</a>
+      </div>` : ''}`;
+}
+
+function reasonDetails(o) {
+  const d = o.details;
+  if (o.reason === 'thirdParty') {
+    const third = d.payments.filter((p) => p.byThird);
+    return `
+      <dl class="facts facts--2">
+        <div><dt>Плательщик</dt><dd>${esc(d.payer)}<small>ИНН ${d.payerInn}</small></dd></div>
+        <div><dt>Оплачено третьим лицом</dt><dd>${money(sumOf(third))}<small>${third.length} из ${d.payments.length} платежей</small></dd></div>
+      </dl>
+      <table class="mini-table">
+        <thead><tr><th>Дата</th><th>Плательщик</th><th class="num">Сумма</th></tr></thead>
+        <tbody>${d.payments.map((p) => `
+          <tr class="${p.byThird ? 'is-flag' : ''}">
+            <td>${p.date}</td>
+            <td>${p.byThird ? `${esc(d.payer)} <span class="tag tag--osh">третье лицо</span>` : esc(o.client)}</td>
+            <td class="num">${money(p.amount)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+  if (o.reason === 'leaseback') {
+    return `
+      <dl class="facts facts--2">
+        <div><dt>Предмет лизинга</dt><dd>${d.asset}</dd></div>
+        <div><dt>Цена покупки</dt><dd>${money(d.price)}</dd></div>
+        <div><dt>Продавец</dt><dd>${esc(d.seller)}<small>ИНН ${d.sellerInn || '—'}</small></dd></div>
+        <div><dt>Лизингополучатель</dt><dd>${esc(o.client)}<small class="text-warn">совпадает с продавцом</small></dd></div>
+        <div><dt>Договор купли-продажи</dt><dd>${d.saleContract}<small>от ${d.saleDate}</small></dd></div>
+        <div><dt>Договор лизинга</dt><dd>${o.contract}<small>от ${o.contractDate}</small></dd></div>
+      </dl>`;
+  }
+  const share = Math.round((d.usedMonths / d.plannedMonths) * 100);
+  return `
+    <dl class="facts facts--2">
+      <div><dt>Предмет лизинга</dt><dd>${d.asset}</dd></div>
+      <div><dt>Сумма досрочного выкупа</dt><dd>${money(d.buyout)}</dd></div>
+      <div><dt>Начало лизинга</dt><dd>${d.startDate}</dd></div>
+      <div><dt>Досрочное завершение</dt><dd>${d.endDate}</dd></div>
+    </dl>
+    <div class="term">
+      <div class="term__bar"><span style="width:${Math.max(share, 3)}%"></span></div>
+      <div class="term__text">Пользовался <b>${d.usedMonths} ${plural(d.usedMonths, ['месяц', 'месяца', 'месяцев'])}</b> из ${d.plannedMonths} по договору — ${share}% срока</div>
+    </div>`;
+}
+
+function verdictForm(o) {
+  const draft = ui.verdictDraft || { choice: o.verdict === 'pending' ? '' : o.verdict, comment: o.verdictComment || '' };
+  ui.verdictDraft = draft;
+  return `
+    <p class="verdict__lead">Операция обоснована?</p>
+    <div class="options">
+      <label class="option ${draft.choice === 'justified' ? 'is-active' : ''}">
+        <input type="radio" name="verdict" value="justified" data-action="verdict-choice" ${draft.choice === 'justified' ? 'checked' : ''}>
+        <b>Обоснована</b><span>Останется в системе с отметкой и не попадёт в сообщение</span>
+      </label>
+      <label class="option ${draft.choice === 'unjustified' ? 'is-active' : ''}">
+        <input type="radio" name="verdict" value="unjustified" data-action="verdict-choice" ${draft.choice === 'unjustified' ? 'checked' : ''}>
+        <b>Не обоснована</b><span>Попадёт в сформированное сообщение и уйдёт в Росфинмониторинг</span>
+      </label>
+    </div>
+    <label class="field">
+      <span>Комментарий к заключению</span>
+      <textarea id="verdict-comment" rows="3" placeholder="Например: плательщик — поручитель, есть письмо лизингополучателя">${esc(draft.comment)}</textarea>
+      <small class="field__error" id="verdict-error"></small>
+    </label>
+    <div class="verdict__actions">
+      ${o.verdict !== 'pending' ? '<button type="button" class="btn btn--link" data-action="verdict-cancel">Отмена</button>' : ''}
+      <button type="button" class="btn btn--primary" data-action="verdict-save" data-op="${o.id}">Сохранить заключение</button>
+    </div>`;
+}
+
+function verdictResult(o, msg, locked) {
+  const unj = o.verdict === 'unjustified';
+  return `
+    <div class="verdict-result verdict-result--${VERDICTS[o.verdict].cls}">
+      <div class="verdict-result__head">${verdictBadge(o)}<span class="muted">${esc(o.verdictBy)} · ${o.verdictAt}</span></div>
+      ${o.verdictComment ? `<p class="verdict-result__comment">${esc(o.verdictComment)}</p>` : ''}
+      <p class="verdict-result__next">${
+        msg ? `Операция включена в сообщение <a class="link" href="#/messages/${msg.id}">${msg.number}</a> (${MSG_STATUS[msg.status].label.toLowerCase()}).`
+        : unj ? 'Операция попадёт в следующее сформированное сообщение и уйдёт в Росфинмониторинг.'
+        : 'Операция остаётся в системе с отметкой «Обоснована» и не попадёт в сообщение.'}</p>
+    </div>
+    <div class="verdict__actions">
+      ${!locked ? '<button type="button" class="btn btn--secondary" data-action="verdict-edit">Изменить заключение</button>' : ''}
+      ${unj && !msg ? '<a class="btn btn--primary" href="#/create">Сформировать сообщение</a>' : ''}
+    </div>`;
+}
+
+function saveVerdict(opId) {
+  const o = opById(opId);
+  const draft = ui.verdictDraft || {};
+  draft.comment = document.getElementById('verdict-comment').value.trim();
+  const err = document.getElementById('verdict-error');
+  if (!draft.choice) { err.textContent = 'Выбери, обоснована операция или нет'; return; }
+  if (draft.comment.length < 5) {
+    err.textContent = 'Опиши, на чём основано заключение';
+    document.getElementById('verdict-comment').focus();
+    return;
+  }
+  Object.assign(o, { verdict: draft.choice, verdictComment: draft.comment, verdictBy: CURRENT_USER, verdictAt: today(), isNew: false });
+  ui.verdictDraft = null;
+  save();
+  render({ keepScroll: true });
+  toast(draft.choice === 'unjustified'
+    ? 'Не обоснована — операция попадёт в следующее сообщение'
+    : 'Обоснована — операция не попадёт в сообщение');
 }
 
 function periodLabel() {
@@ -489,6 +795,7 @@ function filteredOps() {
     return matches(o, q)
       && (!ui.opsClass || o.cls === ui.opsClass)
       && (!ui.opsKind || o.kind === ui.opsKind)
+      && (!ui.opsVerdict || (isOsh(o) && o.verdict === ui.opsVerdict))
       && (!ui.opsFrom || d >= ui.opsFrom)
       && (!ui.opsTo || d <= ui.opsTo);
   });
@@ -503,7 +810,7 @@ function operationsList() {
   }
   return `
     <p class="found">Найдено ${nOps(list.length)}</p>
-    ${opsTable(shown)}
+    ${opsTable(shown, { review: ui.opsClass !== 'mandatory' })}
     ${list.length > shown.length
       ? `<div class="more"><button class="btn btn--secondary" type="button" data-action="more">Показать ещё · осталось ${list.length - shown.length}</button></div>`
       : ''}`;
@@ -515,7 +822,7 @@ function viewCreate() {
   if (!ui.draftNumber) {
     ui.draftNumber = nextNumber();
     // по умолчанию выбраны все операции, готовые к отправке
-    ui.selected = new Set(freeOps().map((o) => o.id));
+    ui.selected = new Set(readyOps().map((o) => o.id));
     ui.pickQuery = ''; ui.pickKind = '';
   }
   setNav([], { tab: { label: `Сообщение ${ui.draftNumber}`, closeHref: '#/' } });
@@ -547,11 +854,11 @@ function viewCreate() {
 
 function pickerOps() {
   const q = ui.pickQuery.trim().toLowerCase();
-  return freeOps().filter((o) => matches(o, q) && (!ui.pickKind || o.kind === ui.pickKind));
+  return readyOps().filter((o) => matches(o, q) && (!ui.pickKind || o.kind === ui.pickKind));
 }
 
 function pickerList() {
-  if (!freeOps().length) {
+  if (!readyOps().length) {
     return '<div class="empty">Нет операций, готовых к отправке</div>';
   }
   return opsTable(pickerOps(), { selectable: true, empty: 'Ничего не найдено. Измените условия поиска' });
@@ -596,12 +903,16 @@ function render({ keepScroll = false } = {}) {
   if (route !== currentRoute) {
     if (parts[0] !== 'create') { ui.draftNumber = null; ui.selected.clear(); }
     ui.opsLimit = 20;
+    ui.verdictDraft = null;
+    // ссылка «Проверить» с главной: только ОСХ без заключения
+    if (route === '/operations?review') Object.assign(ui, { opsClass: 'suspicious', opsVerdict: 'pending', opsKind: '', opsQuery: '', opsFrom: '', opsTo: '' });
   }
 
   let html;
   if (!parts.length) html = viewHome();
   else if (parts[0] === 'messages' && parts[1]) html = viewMessage(decodeURIComponent(parts[1]));
   else if (parts[0] === 'messages') html = viewMessages();
+  else if (parts[0] === 'operations' && parts[1]) html = viewOperation(decodeURIComponent(parts[1]));
   else if (parts[0] === 'operations') html = viewOperations();
   else if (parts[0] === 'create') html = viewCreate();
   else if (parts[0] === 'statuses') html = viewStatuses();
@@ -716,7 +1027,7 @@ function showContract(opId) {
 }
 
 function createMessage() {
-  const ids = [...ui.selected].filter((id) => state.ops.some((o) => o.id === id && !o.messageId));
+  const ids = [...ui.selected].filter((id) => state.ops.some((o) => o.id === id && !o.messageId && canSend(o)));
   if (!ids.length) return;
   const number = ui.draftNumber || nextNumber();
   state.messages.unshift({ id: number, number, date: today(), type: 'FMO1', status: 'ready', sentAt: null });
@@ -787,7 +1098,15 @@ document.addEventListener('click', (e) => {
       case 'contract': e.preventDefault(); return showContract(op);
       case 'create': return createMessage();
       case 'msg-filter': ui.msgFilter = filter; return render({ keepScroll: true });
-      case 'clear-filter': ui[filter] = ''; ui.opsLimit = 20; return render({ keepScroll: true });
+      case 'clear-filter': ui[filter] = ''; if (filter === 'opsClass') ui.opsVerdict = ''; ui.opsLimit = 20; return render({ keepScroll: true });
+      case 'verdict-filter': ui.opsVerdict = filter; ui.opsLimit = 20; return render({ keepScroll: true });
+      case 'verdict-save': return saveVerdict(op);
+      case 'verdict-edit': {
+        const o = opById(currentPath.split('/')[2]);
+        ui.verdictDraft = { choice: o.verdict, comment: o.verdictComment || '' };
+        return render({ keepScroll: true });
+      }
+      case 'verdict-cancel': ui.verdictDraft = null; return render({ keepScroll: true });
       case 'toggle-period': ui.periodOpen = !ui.periodOpen; return render({ keepScroll: true });
       case 'clear-period': ui.opsFrom = ui.opsTo = ''; ui.periodOpen = false; return render({ keepScroll: true });
       case 'period-preset': {
@@ -807,7 +1126,7 @@ document.addEventListener('click', (e) => {
         return render({ keepScroll: true });
       }
       case 'reset-filters':
-        Object.assign(ui, { opsQuery: '', opsClass: '', opsKind: '', opsFrom: '', opsTo: '', opsLimit: 20 });
+        Object.assign(ui, { opsQuery: '', opsClass: '', opsKind: '', opsVerdict: '', opsFrom: '', opsTo: '', opsLimit: 20 });
         return render({ keepScroll: true });
       case 'more': ui.opsLimit += 20; return refreshList();
       case 'toggle-power':
@@ -853,8 +1172,13 @@ document.addEventListener('change', (e) => {
     toast(`Статус: ${USER_STATUS[state.userStatus].label}`);
   } else if (e.target.id === 'ops-class' || e.target.id === 'ops-kind') {
     ui[e.target.id === 'ops-class' ? 'opsClass' : 'opsKind'] = e.target.value;
+    if (e.target.id === 'ops-class' && e.target.value !== 'suspicious') ui.opsVerdict = '';
     ui.opsLimit = 20;
     render({ keepScroll: true });
+  } else if (action === 'verdict-choice') {
+    ui.verdictDraft = { choice: e.target.value, comment: document.getElementById('verdict-comment').value };
+    document.querySelectorAll('.verdict .option').forEach((l) => l.classList.toggle('is-active', l.contains(e.target)));
+    document.getElementById('verdict-error').textContent = '';
   } else if (e.target.id === 'pick-kind') {
     ui.pickKind = e.target.value;
     refreshList();
@@ -865,6 +1189,7 @@ document.addEventListener('input', (e) => {
   if (e.target.id === 'msg-search') { ui.msgQuery = e.target.value; refreshList(); }
   if (e.target.id === 'ops-search') { ui.opsQuery = e.target.value; ui.opsLimit = 20; refreshList(); }
   if (e.target.id === 'pick-search') { ui.pickQuery = e.target.value; refreshList(); }
+  if (e.target.id === 'verdict-comment' && ui.verdictDraft) ui.verdictDraft.comment = e.target.value;
 });
 
 // Перерисовываем только список, чтобы не терять фокус в поиске
