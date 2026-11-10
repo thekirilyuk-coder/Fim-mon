@@ -689,9 +689,9 @@ function viewOperation(id) {
             </button>`).join('')}
         </div>
         <div class="verdict__actions">
-          ${locked ? '' : `<button type="button" class="btn btn--primary" data-action="draft-save" data-op="${o.id}" ${isDirty(o) ? '' : 'disabled'}>Сохранить</button>`}
-          ${next ? `<a class="btn btn--secondary" href="#/operations/${next.id}">Следующая операция →</a>` : ''}
-          ${locked ? '' : `<button type="button" class="btn btn--link" data-action="draft-reset" ${isDirty(o) ? '' : 'hidden'}>Отменить</button>`}
+          ${locked ? '' : `<button type="button" class="btn btn--primary" data-action="draft-save" data-op="${o.id}" ${isDirty(o) ? '' : 'disabled'}>Сохранить</button>
+          <button type="button" class="btn btn--link" data-action="draft-reset" ${isDirty(o) ? '' : 'hidden'}>Отменить</button>`}
+          ${next ? `<a class="btn btn--secondary verdict__next" href="#/operations/${next.id}">Следующая операция →</a>` : ''}
         </div>
       </section>` : ''}
 

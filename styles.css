@@ -629,6 +629,7 @@ body.has-tablebar .proto-footer { display: none; }
   margin-top: 32px;
 }
 .verdict__actions [hidden] { display: none; }
+.verdict__next { margin-left: auto; }
 
 
 .next-op {
