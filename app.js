@@ -677,7 +677,9 @@ function viewOperation(id) {
 
     ${isOsh(o) ? `
       <section class="op-section verdict" id="verdict">
-        <h2 class="details__title">Заключение</h2>
+        <h2 class="details__title">Комментарий и документы</h2>
+        ${notesBlock(o, locked)}
+        <h3 class="verdict__sub verdict__sub--switch">Заключение</h3>
         <div class="segmented ${locked ? 'is-disabled' : ''}" role="radiogroup" aria-label="Заключение по операции">
           ${Object.entries(VERDICTS).map(([v, d]) => `
             <button type="button" role="radio" aria-checked="${(locked ? o.verdict : draft.verdict) === v}"
@@ -686,8 +688,6 @@ function viewOperation(id) {
               <span class="segmented__dot"></span>${d.label}
             </button>`).join('')}
         </div>
-        <h3 class="verdict__sub">Комментарий и документы</h3>
-        ${notesBlock(o, locked)}
         ${locked ? '' : `
           <div class="verdict__actions">
             <button type="button" class="btn btn--link" data-action="draft-reset" ${isDirty(o) ? '' : 'hidden'}>Отменить</button>

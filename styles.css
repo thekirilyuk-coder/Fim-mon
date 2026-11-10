@@ -759,6 +759,8 @@ body.is-column .proto-footer { display: none; }
 .op-page .verdict { margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--border); }
 .op-page .next-op { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border); }
 
+.verdict__sub--switch { margin-top: 32px; }
+
 /* ---------- Адаптив ---------- */
 @media (max-width: 720px) {
   .page { padding-top: 28px; }
