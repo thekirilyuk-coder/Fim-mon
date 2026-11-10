@@ -639,6 +639,29 @@ body.has-tablebar .proto-footer { display: none; }
   margin-top: 24px; font-size: 14px; color: var(--text-muted);
 }
 
+/* ---------- Платежи третьего лица ---------- */
+.payments { margin-top: 24px; }
+.payments__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.payments__head .details__title { margin: 0; }
+.payments__head .muted { font-size: 14px; }
+.payments__list { display: grid; gap: 16px; }
+.pay-card { border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+.pay-card__head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+  padding-bottom: 16px; border-bottom: 1px solid var(--border);
+}
+.pay-card__title { font-weight: 600; }
+.pay-card__head .sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+.pay-card__sum { font-size: 20px; font-weight: 700; white-space: nowrap; }
+.pay-card__fields {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px 24px; margin: 16px 0 0;
+}
+.pay-card__fields dt { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
+.pay-card__fields dd { margin: 0; font-size: 15px; }
+.pay-card__fields small { display: block; font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+.pay-card__purpose { grid-column: 1 / -1; }
+.pay-card__purpose dd { background: var(--secondary-bg); border-radius: 10px; padding: 12px 14px; font-size: 14px; line-height: 1.5; }
+
 /* ---------- Адаптив ---------- */
 @media (max-width: 720px) {
   .page { padding-top: 28px; }
@@ -666,5 +689,7 @@ body.has-tablebar .proto-footer { display: none; }
   .fsel { height: 64px; }
   .table--ops .col-client { max-width: 220px; }
   .op-grid { grid-template-columns: 1fr; }
+  .pay-card__fields { grid-template-columns: 1fr; }
+  .pay-card__head { flex-direction: column; }
   .facts--2 { grid-template-columns: 1fr; }
 }

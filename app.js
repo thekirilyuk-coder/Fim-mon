@@ -1,7 +1,7 @@
 /* Кликабельный прототип «Сообщения РФМ».
    Все данные вымышленные и живут в localStorage этого браузера. */
 
-const STORAGE_KEY = 'finmon-prototype-v5';
+const STORAGE_KEY = 'finmon-prototype-v6';
 
 /* ---------- Справочники ---------- */
 
@@ -69,6 +69,15 @@ const ASSETS = [
 
 const CURRENT_USER = 'Алексей П.';
 
+// Плательщики — третьи лица (вымышленные)
+const THIRD_PARTIES = [
+  ['КФ ООО «Соусная компания»', '7728803870'], ['ООО «Андромеда-Трейд»', '7714512345'],
+  ['ИП Петров Сергей Андреевич', '503112345678'], ['АО «Северный поток»', '7805123456'],
+  ['ООО «ТехноЛайн Инжиниринг»', '7743123459'],
+];
+
+const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
 /* ---------- Начальные данные ---------- */
 
 function makeSeed() {
@@ -133,16 +142,29 @@ function makeSeed() {
     o.reason = reason || pick(Object.keys(OSH_REASONS));
     o.verdict = 'pending';
     if (o.reason === 'thirdParty') {
-      const [payer, payerInn] = pick(CLIENTS.filter(([c]) => c !== o.client));
-      const count = 2 + Math.floor(rnd() * 3);
-      const part = Math.round(o.amount / (count + 1));
+      const [payer, payerInn] = pick(THIRD_PARTIES);
+      const count = 1 + Math.floor(rnd() * 3);
+      const contractNo = o.contract.replace(' ', '0');
+      const rub = (x) => x.toFixed(2).replace('.', '-');
       o.details = {
         payer, payerInn,
-        payments: Array.from({ length: count }, (_, i) => ({
-          date: shiftDate(o.appDate, (count - i) * 30),
-          amount: part,
-          byThird: i !== 0,
-        })),
+        payments: Array.from({ length: count }, (_, i) => {
+          const date = shiftDate(o.appDate, (count - 1 - i) * 30);
+          const [, m, y] = date.split('.');
+          const amount = Math.round(o.amount / count) + Math.floor(rnd() * 100) / 100;
+          const vat = Math.round(amount * 22 / 122 * 100) / 100;
+          const advance = i === 0 && rnd() < .5;
+          return {
+            date, time: '10:00:00',
+            receipt: '0000-' + pad(150000 + Math.floor(rnd() * 20000), 6),
+            incomingNo: String(1000 + Math.floor(rnd() * 8999)),
+            incomingDate: date,
+            amount,
+            purpose: advance
+              ? `Оплата аванса по договору лизинга №${contractNo} от ${o.contractDate} г., счету №${contractNo}-А от ${o.contractDate} г. Сумма ${rub(amount)} В т.ч. НДС(22%) ${rub(vat)}`
+              : `Лизинговый платеж за ${MONTHS[Number(m) - 1]} ${y} по договору ${contractNo} от ${o.contractDate} Сумма ${rub(amount)} В т.ч. НДС (22%) ${rub(vat)}`,
+          };
+        }),
       };
     } else if (o.reason === 'leaseback') {
       o.details = {
@@ -282,6 +304,7 @@ const nOps = (n) => `${n} ${plural(n, ['операция', 'операции', '
 const nMsgs = (n) => `${n} ${plural(n, ['сообщение', 'сообщения', 'сообщений'])}`;
 const num = (n) => n.toLocaleString('ru-RU');
 const money = (n) => num(n) + ' ₽';
+const kop = (n) => n.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₽';
 const today = () => new Date().toLocaleDateString('ru-RU');
 
 const ICON = {
@@ -647,6 +670,8 @@ function viewOperation(id) {
         </section>` : ''}
     </div>
 
+    ${o.reason === 'thirdParty' ? paymentsSection(o) : ''}
+
     ${isOsh(o) ? `
       <section class="card details verdict" id="verdict">
         <h2 class="details__title">Заключение</h2>
@@ -663,22 +688,13 @@ function viewOperation(id) {
 function reasonDetails(o) {
   const d = o.details;
   if (o.reason === 'thirdParty') {
-    const third = d.payments.filter((p) => p.byThird);
     return `
       <dl class="facts facts--2">
-        <div><dt>Плательщик</dt><dd>${esc(d.payer)}<small>ИНН ${d.payerInn}</small></dd></div>
-        <div><dt>Оплачено третьим лицом</dt><dd>${money(sumOf(third))}<small>${third.length} из ${d.payments.length} платежей</small></dd></div>
-      </dl>
-      <table class="mini-table">
-        <thead><tr><th>Дата</th><th>Плательщик</th><th class="num">Сумма</th></tr></thead>
-        <tbody>${d.payments.map((p) => `
-          <tr class="${p.byThird ? 'is-flag' : ''}">
-            <td>${p.date}</td>
-            <td>${p.byThird ? `${esc(d.payer)} <span class="tag tag--osh">третье лицо</span>` : esc(o.client)}</td>
-            <td class="num">${money(p.amount)}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>`;
+        <div><dt>Плательщик — третье лицо</dt><dd>${esc(d.payer)}<small>ИНН ${d.payerInn}</small></dd></div>
+        <div><dt>Контрагент по договору</dt><dd>${esc(o.client)}<small>ИНН ${o.inn || '—'}</small></dd></div>
+        <div><dt>Оплачено третьим лицом</dt><dd>${kop(sumOf(d.payments))}<small>${d.payments.length} ${plural(d.payments.length, ['платёж', 'платежа', 'платежей'])}</small></dd></div>
+        <div><dt>Договор лизинга</dt><dd>${o.contract.replace(' ', '0')}<small>от ${o.contractDate}</small></dd></div>
+      </dl>`;
   }
   if (o.reason === 'leaseback') {
     return `
@@ -703,6 +719,37 @@ function reasonDetails(o) {
       <div class="term__bar"><span style="width:${Math.max(share, 3)}%"></span></div>
       <div class="term__text">Пользовался <b>${d.usedMonths} ${plural(d.usedMonths, ['месяц', 'месяца', 'месяцев'])}</b> из ${d.plannedMonths} по договору — ${share}% срока</div>
     </div>`;
+}
+
+// Платежи третьего лица — поля как в выгрузке «Поступление на расчётный счёт»
+function paymentsSection(o) {
+  const d = o.details;
+  const contractNo = o.contract.replace(' ', '0');
+  return `
+    <section class="card details payments">
+      <div class="payments__head">
+        <h2 class="details__title">Платежи третьего лица</h2>
+        <span class="muted">Договор лизинга №${contractNo} от ${o.contractDate}</span>
+      </div>
+      <div class="payments__list">
+        ${d.payments.map((p) => `
+          <article class="pay-card">
+            <header class="pay-card__head">
+              <div>
+                <div class="pay-card__title">Поступление на расчётный счёт ${p.receipt}</div>
+                <div class="sub">${p.date} ${p.time}</div>
+              </div>
+              <div class="pay-card__sum">${kop(p.amount)}</div>
+            </header>
+            <dl class="pay-card__fields">
+              <div><dt>Входящий документ</dt><dd>№ ${p.incomingNo} от ${p.incomingDate}</dd></div>
+              <div><dt>Контрагент по договору</dt><dd>${esc(o.client)}</dd></div>
+              <div><dt>Плательщик — третье лицо</dt><dd>${esc(d.payer)}<small>ИНН ${d.payerInn}</small></dd></div>
+              <div class="pay-card__purpose"><dt>Назначение платежа</dt><dd>${esc(p.purpose)}</dd></div>
+            </dl>
+          </article>`).join('')}
+      </div>
+    </section>`;
 }
 
 function verdictForm(o) {
