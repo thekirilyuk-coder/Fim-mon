@@ -639,7 +639,6 @@ body.has-tablebar .proto-footer { display: none; }
   margin-top: 32px;
 }
 .verdict__actions [hidden] { display: none; }
-.verdict__next { margin-left: auto; }
 
 
 .next-op {
@@ -1541,9 +1540,8 @@ function viewOperation(id) {
             </button>`).join('')}
         </div>
         <div class="verdict__actions">
-          ${locked ? '' : `<button type="button" class="btn btn--primary" data-action="draft-save" data-op="${o.id}" ${isDirty(o) ? '' : 'disabled'}>Сохранить</button>
-          <button type="button" class="btn btn--link" data-action="draft-reset" ${isDirty(o) ? '' : 'hidden'}>Отменить</button>`}
-          ${next ? `<a class="btn btn--secondary verdict__next" href="#/operations/${next.id}">Следующая операция →</a>` : ''}
+          ${locked ? '' : `<button type="button" class="btn btn--primary" data-action="draft-save" data-op="${o.id}">Сохранить</button>`}
+          ${next ? `<a class="btn btn--secondary" href="#/operations/${next.id}">Следующая операция →</a>` : ''}
         </div>
       </section>` : ''}
 
@@ -1630,23 +1628,6 @@ function notesBlock(o, locked) {
 
 const draftOf = (o) => ({ opId: o.id, verdict: o.verdict, comment: o.verdictComment || '', files: [...(o.verdictFiles || [])] });
 
-function isDirty(o) {
-  const d = ui.draft;
-  if (!d || d.opId !== o.id) return false;
-  const saved = o.verdictFiles || [];
-  return d.verdict !== o.verdict || d.comment !== (o.verdictComment || '')
-    || d.files.length !== saved.length || d.files.some((f, i) => f !== saved[i]);
-}
-
-// Обновить кнопки «Сохранить» / «Отменить» без перерисовки страницы
-function syncDraftActions() {
-  const dirty = isDirty(opById(ui.draft.opId));
-  const saveBtn = document.querySelector('[data-action="draft-save"]');
-  const resetBtn = document.querySelector('[data-action="draft-reset"]');
-  if (saveBtn) saveBtn.disabled = !dirty;
-  if (resetBtn) resetBtn.hidden = !dirty;
-}
-
 const noteFiles = () => ui.draft.files.map((f, i) => fileChip(f,
   `data-action="preview-file" data-file="${i}"`,
   `<button type="button" class="file-chip__remove" data-action="remove-file" data-file="${i}" aria-label="Удалить ${esc(f.name)}">${ICON.close}</button>`)).join('');
@@ -1661,8 +1642,7 @@ async function addNoteFiles(list) {
     files.push({ name: file.name, type: file.type || '', size: file.size, data: await readFile(file) });
   }
   document.getElementById('note-files-list').innerHTML = noteFiles();
-  syncDraftActions();
-}
+  }
 
 function saveDraft(opId) {
   const o = opById(opId);
@@ -2067,10 +2047,9 @@ document.addEventListener('click', (e) => {
         });
         document.getElementById('note-error').textContent = '';
         document.querySelector('.tfield').classList.remove('is-error');
-        return syncDraftActions();
+        return;
       }
       case 'draft-save': return saveDraft(op);
-      case 'draft-reset': ui.draft = null; return render({ keepScroll: true });
       case 'preview-file': {
         const list = op ? opById(op).verdictFiles : ui.draft.files;
         return previewFile(list[Number(actionEl.dataset.file)]);
@@ -2078,7 +2057,7 @@ document.addEventListener('click', (e) => {
       case 'remove-file':
         ui.draft.files.splice(Number(actionEl.dataset.file), 1);
         document.getElementById('note-files-list').innerHTML = noteFiles();
-        return syncDraftActions();
+        return;
       case 'pick-files': return document.getElementById('note-files').click();
       case 'toggle-period': ui.periodOpen = !ui.periodOpen; return render({ keepScroll: true });
       case 'clear-period': ui.opsFrom = ui.opsTo = ''; ui.periodOpen = false; return render({ keepScroll: true });
@@ -2166,7 +2145,6 @@ document.addEventListener('input', (e) => {
     document.getElementById('note-counter').textContent = `${e.target.value.length}/${COMMENT_MAX}`;
     document.getElementById('note-error').textContent = '';
     e.target.closest('.tfield').classList.remove('is-error');
-    syncDraftActions();
   }
 });
 
