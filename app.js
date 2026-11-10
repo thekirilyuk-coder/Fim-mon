@@ -263,7 +263,7 @@ function makeSeed() {
 let state = load();
 const ui = {
   msgFilter: 'all', msgQuery: '',
-  opsQuery: '', opsClass: 'suspicious', opsKind: '', opsVerdict: '', opsFrom: '', opsTo: '', opsLimit: 20,
+  opsQuery: '', opsClass: 'suspicious', opsKind: '', opsFrom: '', opsTo: '', opsLimit: 20,
   periodOpen: false,
   pickQuery: '', pickKind: '',
   selected: new Set(),
@@ -621,23 +621,8 @@ function viewOperations() {
         </div>
       </div>
 
-      ${ui.opsClass === 'suspicious' ? verdictChips() : ''}
       <div id="list">${operationsList()}</div>
     </section>`;
-}
-
-// Быстрый фильтр по заключению — только для класса ОСХ
-function verdictChips() {
-  const osh = state.ops.filter(isOsh);
-  const count = (v) => osh.filter((o) => o.verdict === v).length;
-  const chips = [['', 'Все', osh.length], ...Object.entries(VERDICTS).map(([k, v]) => [k, v.label, count(k)])];
-  return `
-    <div class="chips verdict-chips" role="tablist" aria-label="Заключение">
-      ${chips.map(([k, l, c]) => `
-        <button type="button" class="chip ${ui.opsVerdict === k ? 'is-active' : ''}" data-action="verdict-filter" data-filter="${k}" role="tab" aria-selected="${ui.opsVerdict === k}">
-          ${l} <span class="chip__count">${c}</span>
-        </button>`).join('')}
-    </div>`;
 }
 
 /* --- Карточка операции сомнительного характера --- */
@@ -910,7 +895,7 @@ function filteredOps() {
     return matches(o, q)
       && (!ui.opsClass || o.cls === ui.opsClass)
       && (!ui.opsKind || o.kind === ui.opsKind)
-      && (!ui.opsVerdict || (isOsh(o) && o.verdict === ui.opsVerdict))
+
       && (!ui.opsFrom || d >= ui.opsFrom)
       && (!ui.opsTo || d <= ui.opsTo);
   });
@@ -924,7 +909,6 @@ function operationsList() {
       <button class="btn btn--secondary btn--sm empty__btn" type="button" data-action="reset-filters">Сбросить фильтры</button></div>`;
   }
   return `
-    <p class="found">Найдено ${nOps(list.length)}</p>
     ${opsTable(shown, { review: ui.opsClass !== 'mandatory' })}
     ${list.length > shown.length
       ? `<div class="more"><button class="btn btn--secondary" type="button" data-action="more">Показать ещё · осталось ${list.length - shown.length}</button></div>`
@@ -1018,8 +1002,6 @@ function render({ keepScroll = false } = {}) {
   if (route !== currentRoute) {
     if (parts[0] !== 'create') { ui.draftNumber = null; ui.selected.clear(); }
     ui.opsLimit = 20;
-    // ссылка «Проверить» с главной: только ОСХ без заключения
-    if (route === '/operations?review') Object.assign(ui, { opsClass: 'suspicious', opsVerdict: 'pending', opsKind: '', opsQuery: '', opsFrom: '', opsTo: '' });
   }
 
   let html;
@@ -1217,8 +1199,7 @@ document.addEventListener('click', (e) => {
       case 'contract': e.preventDefault(); return showContract(op);
       case 'create': return createMessage();
       case 'msg-filter': ui.msgFilter = filter; return render({ keepScroll: true });
-      case 'clear-filter': ui[filter] = ''; if (filter === 'opsClass') ui.opsVerdict = ''; ui.opsLimit = 20; return render({ keepScroll: true });
-      case 'verdict-filter': ui.opsVerdict = filter; ui.opsLimit = 20; return render({ keepScroll: true });
+      case 'clear-filter': ui[filter] = ''; ui.opsLimit = 20; return render({ keepScroll: true });
       case 'decide': return confirmVerdict(op, actionEl.dataset.verdict);
       case 'preview-file': return previewFile(opById(op).verdictFiles[Number(actionEl.dataset.file)]);
       case 'toggle-period': ui.periodOpen = !ui.periodOpen; return render({ keepScroll: true });
@@ -1240,7 +1221,7 @@ document.addEventListener('click', (e) => {
         return render({ keepScroll: true });
       }
       case 'reset-filters':
-        Object.assign(ui, { opsQuery: '', opsClass: '', opsKind: '', opsVerdict: '', opsFrom: '', opsTo: '', opsLimit: 20 });
+        Object.assign(ui, { opsQuery: '', opsClass: '', opsKind: '', opsFrom: '', opsTo: '', opsLimit: 20 });
         return render({ keepScroll: true });
       case 'more': ui.opsLimit += 20; return refreshList();
       case 'toggle-power':
@@ -1286,7 +1267,6 @@ document.addEventListener('change', (e) => {
     toast(`Статус: ${USER_STATUS[state.userStatus].label}`);
   } else if (e.target.id === 'ops-class' || e.target.id === 'ops-kind') {
     ui[e.target.id === 'ops-class' ? 'opsClass' : 'opsKind'] = e.target.value;
-    if (e.target.id === 'ops-class' && e.target.value !== 'suspicious') ui.opsVerdict = '';
     ui.opsLimit = 20;
     render({ keepScroll: true });
   } else if (e.target.id === 'pick-kind') {

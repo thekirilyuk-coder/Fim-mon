@@ -561,7 +561,6 @@ body.has-tablebar .proto-footer { display: none; }
 .popover__presets .chip { height: 32px; font-size: 13px; }
 .popover__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
-.found { margin: 20px 0 0; font-size: 13px; color: var(--text-muted); }
 .empty__btn { margin-top: 16px; }
 .table--ops .col-client { max-width: 340px; }
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -591,7 +590,6 @@ body.has-tablebar .proto-footer { display: none; }
   content: "›"; position: absolute; right: 12px; top: 16px; font-size: 22px; color: #b0b4ba;
 }
 
-.verdict-chips { margin-top: 20px; }
 
 
 .page-head__status { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
