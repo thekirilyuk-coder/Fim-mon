@@ -635,8 +635,8 @@ body.has-tablebar .proto-footer { display: none; }
 }
 .field textarea:focus { border-color: var(--text); }
 .verdict__actions {
-  display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap;
-  margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-start; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-top: 32px;
 }
 .verdict__actions [hidden] { display: none; }
 
@@ -764,10 +764,9 @@ body.is-column .proto-footer { display: none; }
 /* ---------- Карточка операции в белой колонке ---------- */
 .op-page .page-head { margin-bottom: 8px; }
 .op-page .page-head__status { margin-top: 12px; }
-.op-page .op-grid { gap: 48px; margin-top: 24px; padding-top: 28px; border-top: 1px solid var(--border); }
+.op-page .op-grid { gap: 48px; margin-top: 32px; }
 .op-section { padding: 0; }
-.op-page .verdict { margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--border); }
-.op-page .next-op { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border); }
+.op-page .verdict { margin-top: 48px; }
 
 .verdict__sub--switch { margin-top: 32px; }
 
@@ -1540,18 +1539,13 @@ function viewOperation(id) {
               <span class="segmented__dot"></span>${d.label}
             </button>`).join('')}
         </div>
-        ${locked ? '' : `
-          <div class="verdict__actions">
-            <button type="button" class="btn btn--link" data-action="draft-reset" ${isDirty(o) ? '' : 'hidden'}>Отменить</button>
-            <button type="button" class="btn btn--primary" data-action="draft-save" data-op="${o.id}" ${isDirty(o) ? '' : 'disabled'}>Сохранить</button>
-          </div>`}
+        <div class="verdict__actions">
+          ${locked ? '' : `<button type="button" class="btn btn--primary" data-action="draft-save" data-op="${o.id}" ${isDirty(o) ? '' : 'disabled'}>Сохранить</button>`}
+          ${next ? `<a class="btn btn--secondary" href="#/operations/${next.id}">Следующая операция →</a>` : ''}
+          ${locked ? '' : `<button type="button" class="btn btn--link" data-action="draft-reset" ${isDirty(o) ? '' : 'hidden'}>Отменить</button>`}
+        </div>
       </section>` : ''}
 
-    ${next ? `
-      <div class="next-op">
-        <span>Ещё ${nOps(others.length)} ${plural(others.length, ['ждёт', 'ждут', 'ждут'])} заключения</span>
-        <a class="btn btn--secondary btn--sm" href="#/operations/${next.id}">Следующая операция →</a>
-      </div>` : ''}
     </section>`;
 }
 

@@ -688,18 +688,13 @@ function viewOperation(id) {
               <span class="segmented__dot"></span>${d.label}
             </button>`).join('')}
         </div>
-        ${locked ? '' : `
-          <div class="verdict__actions">
-            <button type="button" class="btn btn--link" data-action="draft-reset" ${isDirty(o) ? '' : 'hidden'}>Отменить</button>
-            <button type="button" class="btn btn--primary" data-action="draft-save" data-op="${o.id}" ${isDirty(o) ? '' : 'disabled'}>Сохранить</button>
-          </div>`}
+        <div class="verdict__actions">
+          ${locked ? '' : `<button type="button" class="btn btn--primary" data-action="draft-save" data-op="${o.id}" ${isDirty(o) ? '' : 'disabled'}>Сохранить</button>`}
+          ${next ? `<a class="btn btn--secondary" href="#/operations/${next.id}">Следующая операция →</a>` : ''}
+          ${locked ? '' : `<button type="button" class="btn btn--link" data-action="draft-reset" ${isDirty(o) ? '' : 'hidden'}>Отменить</button>`}
+        </div>
       </section>` : ''}
 
-    ${next ? `
-      <div class="next-op">
-        <span>Ещё ${nOps(others.length)} ${plural(others.length, ['ждёт', 'ждут', 'ждут'])} заключения</span>
-        <a class="btn btn--secondary btn--sm" href="#/operations/${next.id}">Следующая операция →</a>
-      </div>` : ''}
     </section>`;
 }
 
