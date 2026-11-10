@@ -391,7 +391,6 @@ function setNav(items, { tab } = {}) {
 function viewHome() {
   setNav([]);
   const free = readyOps().length;
-  const pending = pendingOsh().length;
   return `
     <h1 class="page__title">Моя работа</h1>
     <p class="page__subtitle">Здесь собраны твои рабочие инструменты</p>
@@ -415,13 +414,6 @@ function viewHome() {
           <a class="btn btn--primary" href="#/create">Создать сообщение</a>
         </div>
       </div>
-      ${pending ? `
-        <a class="osh-banner" href="#/operations?review">
-          <span class="osh-banner__icon">${ICON.warn}</span>
-          <span><b>${nOps(pending)} сомнительного характера ${plural(pending, ['ждёт', 'ждут', 'ждут'])} твоего заключения</b>
-          <span class="osh-banner__hint">Пока нет заключения, операция не попадёт в сообщение</span></span>
-          <span class="osh-banner__go">Проверить</span>
-        </a>` : ''}
       ${messagesTable(state.messages.slice(0, 4))}
       <p class="messages__total">Всего ${nMsgs(state.messages.length)} и ${nOps(state.ops.length)}</p>
       <div class="messages__links">

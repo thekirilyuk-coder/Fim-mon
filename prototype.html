@@ -603,16 +603,6 @@ body.has-tablebar .proto-footer { display: none; }
 
 .verdict-chips { margin-top: 20px; }
 
-.osh-banner {
-  display: flex; align-items: center; gap: 16px;
-  margin-top: 24px; padding: 16px 20px;
-  background: #fff4e5; border-radius: 16px; transition: background .15s;
-}
-.osh-banner:hover { background: #ffecd1; }
-.osh-banner__icon svg { width: 28px; height: 28px; display: block; }
-.osh-banner > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.osh-banner__hint { font-size: 13px; color: var(--text-muted); }
-.osh-banner__go { color: var(--link); font-weight: 500; white-space: nowrap; }
 
 .page-head__status { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .callout--info { background: #fff4e5; }
@@ -688,7 +678,6 @@ body.has-tablebar .proto-footer { display: none; }
   .table--ops .col-client { max-width: 220px; }
   .op-grid { grid-template-columns: 1fr; }
   .facts--2 { grid-template-columns: 1fr; }
-  .osh-banner { flex-wrap: wrap; }
 }
 </style>
 </head>
@@ -1127,7 +1116,6 @@ function setNav(items, { tab } = {}) {
 function viewHome() {
   setNav([]);
   const free = readyOps().length;
-  const pending = pendingOsh().length;
   return `
     <h1 class="page__title">Моя работа</h1>
     <p class="page__subtitle">Здесь собраны твои рабочие инструменты</p>
@@ -1151,13 +1139,6 @@ function viewHome() {
           <a class="btn btn--primary" href="#/create">Создать сообщение</a>
         </div>
       </div>
-      ${pending ? `
-        <a class="osh-banner" href="#/operations?review">
-          <span class="osh-banner__icon">${ICON.warn}</span>
-          <span><b>${nOps(pending)} сомнительного характера ${plural(pending, ['ждёт', 'ждут', 'ждут'])} твоего заключения</b>
-          <span class="osh-banner__hint">Пока нет заключения, операция не попадёт в сообщение</span></span>
-          <span class="osh-banner__go">Проверить</span>
-        </a>` : ''}
       ${messagesTable(state.messages.slice(0, 4))}
       <p class="messages__total">Всего ${nMsgs(state.messages.length)} и ${nOps(state.ops.length)}</p>
       <div class="messages__links">

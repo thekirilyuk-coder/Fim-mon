@@ -593,16 +593,6 @@ body.has-tablebar .proto-footer { display: none; }
 
 .verdict-chips { margin-top: 20px; }
 
-.osh-banner {
-  display: flex; align-items: center; gap: 16px;
-  margin-top: 24px; padding: 16px 20px;
-  background: #fff4e5; border-radius: 16px; transition: background .15s;
-}
-.osh-banner:hover { background: #ffecd1; }
-.osh-banner__icon svg { width: 28px; height: 28px; display: block; }
-.osh-banner > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.osh-banner__hint { font-size: 13px; color: var(--text-muted); }
-.osh-banner__go { color: var(--link); font-weight: 500; white-space: nowrap; }
 
 .page-head__status { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .callout--info { background: #fff4e5; }
@@ -678,5 +668,4 @@ body.has-tablebar .proto-footer { display: none; }
   .table--ops .col-client { max-width: 220px; }
   .op-grid { grid-template-columns: 1fr; }
   .facts--2 { grid-template-columns: 1fr; }
-  .osh-banner { flex-wrap: wrap; }
 }
