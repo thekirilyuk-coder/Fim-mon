@@ -797,7 +797,7 @@ body.is-column .proto-footer { display: none; }
 .menu__count {
   min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
   display: grid; place-items: center;
-  background: var(--danger); color: #fff; font-size: 12px; font-weight: 600;
+  background: #e1e4e8; color: var(--text-muted); font-size: 12px; font-weight: 600;
 }
 .menu__check { width: 20px; height: 20px; display: grid; place-items: center; }
 .menu__check svg { width: 18px; height: 18px; fill: none; stroke: var(--link); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
