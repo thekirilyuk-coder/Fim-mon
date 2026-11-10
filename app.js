@@ -1,7 +1,7 @@
 /* Кликабельный прототип «Сообщения РФМ».
    Все данные вымышленные и живут в localStorage этого браузера. */
 
-const STORAGE_KEY = 'finmon-prototype-v8';
+const STORAGE_KEY = 'finmon-prototype-v9';
 
 /* ---------- Справочники ---------- */
 
@@ -57,7 +57,7 @@ const OSH_REASONS = {
 };
 
 const VERDICTS = {
-  pending:     { label: 'На проверке',    cls: 'pending' },
+  pending:     { label: 'Не обработана',  cls: 'pending' },
   justified:   { label: 'Обоснована',     cls: 'justified' },
   unjustified: { label: 'Не обоснована',  cls: 'unjustified' },
 };
@@ -646,17 +646,6 @@ function viewOperation(id) {
           ${isOsh(o) ? `<span class="tag tag--osh">ОСХ</span> ${verdictBadge(o)}` : `<span class="tag">${OP_CLASSES[o.cls]}</span>`}
         </div>
       </div>
-      ${isOsh(o) && !locked ? `
-        <div class="decide" role="group" aria-label="Заключение по операции">
-          <span class="decide__label">${o.verdict === 'pending' ? 'Операция обоснована?' : 'Заключение'}</span>
-          <div class="decide__buttons">
-            ${['justified', 'unjustified'].map((v) => `
-              <button type="button" class="decide__btn decide__btn--${v} ${o.verdict === v ? 'is-active' : ''}"
-                data-action="decide" data-op="${o.id}" data-verdict="${v}" aria-pressed="${o.verdict === v}">
-                ${o.verdict === v ? ICON.check : ''}${VERDICTS[v].label}
-              </button>`).join('')}
-          </div>
-        </div>` : ''}
     </div>
 
     <div class="op-grid">
@@ -682,15 +671,18 @@ function viewOperation(id) {
     </div>
 
     ${isOsh(o) ? `
-      <section class="card details notes">
-        <h2 class="details__title">Комментарий и документы</h2>
-        ${notesBlock(o, locked)}
-      </section>` : ''}
-
-    ${isOsh(o) && o.verdict !== 'pending' ? `
       <section class="card details verdict" id="verdict">
         <h2 class="details__title">Заключение</h2>
-        ${verdictResult(o, msg)}
+        <div class="segmented ${locked ? 'is-disabled' : ''}" role="radiogroup" aria-label="Заключение по операции">
+          ${Object.entries(VERDICTS).map(([v, d]) => `
+            <button type="button" role="radio" aria-checked="${o.verdict === v}"
+              class="segmented__item segmented__item--${d.cls} ${o.verdict === v ? 'is-active' : ''}"
+              data-action="decide" data-op="${o.id}" data-verdict="${v}" ${locked ? 'disabled' : ''}>
+              <span class="segmented__dot"></span>${d.label}
+            </button>`).join('')}
+        </div>
+        <h3 class="verdict__sub">Комментарий и документы</h3>
+        ${notesBlock(o, locked)}
       </section>` : ''}
 
     ${next ? `
@@ -745,16 +737,6 @@ function reasonDetails(o) {
     </div>`;
 }
 
-function verdictResult(o, msg) {
-  return `
-    <div class="verdict-result verdict-result--${VERDICTS[o.verdict].cls}">
-      <div class="verdict-result__head">${verdictBadge(o)}<span class="muted">${esc(o.verdictBy)} · ${o.verdictAt}</span></div>
-      <p class="verdict-result__next">${
-        msg ? `Операция включена в сообщение <a class="link" href="#/messages/${msg.id}">${msg.number}</a> (${MSG_STATUS[msg.status].label.toLowerCase()}).`
-        : o.verdict === 'unjustified' ? 'Операция попадёт в следующее сформированное сообщение и уйдёт в Росфинмониторинг.'
-        : 'Операция остаётся в системе с отметкой «Обоснована» и не попадёт в сообщение.'}</p>
-    </div>`;
-}
 
 // Шаг 2: подтверждение выбранного заключения — комментарий и файлы
 const COMMENT_MAX = 500;
@@ -808,6 +790,21 @@ async function addNoteFiles(o, list) {
 // Шаг 2: подтверждение выбранного заключения
 function confirmVerdict(opId, verdict) {
   const o = opById(opId);
+  if (o.verdict === verdict) return;
+  if (verdict === 'pending') {
+    openModal({
+      title: 'Снять заключение?',
+      body: `<p>Операция вернётся в статус «Не обработана»${o.verdict === 'unjustified' ? ' и не попадёт в сообщение, пока не будет нового заключения' : ''}. Комментарий и документы сохранятся.</p>`,
+      confirmText: 'Снять',
+      onConfirm() {
+        Object.assign(o, { verdict: 'pending', verdictBy: null, verdictAt: null });
+        save();
+        render({ keepScroll: true });
+        toast('Заключение снято');
+      },
+    });
+    return;
+  }
   const comment = (o.verdictComment || '').trim();
   if (comment.length < 5) {
     const field = document.getElementById('note-comment');

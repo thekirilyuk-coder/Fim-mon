@@ -635,12 +635,6 @@ body.has-tablebar .proto-footer { display: none; }
 .field textarea:focus { border-color: var(--text); }
 .verdict__actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
 
-.verdict-result { padding: 16px 20px; border-radius: 16px; background: var(--secondary-bg); }
-.verdict-result--justified { background: #f1faf3; }
-.verdict-result--unjustified { background: #fef3f2; }
-.verdict-result__head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; }
-.verdict-result__comment { margin: 12px 0 0; }
-.verdict-result__next { margin: 8px 0 0; font-size: 14px; color: var(--text-muted); }
 
 .next-op {
   display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
@@ -661,20 +655,6 @@ body.has-tablebar .proto-footer { display: none; }
   font-size: 14px; font-weight: 400; line-height: 1.5;
 }
 
-.decide { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-.decide__label { font-size: 14px; color: var(--text-muted); }
-.decide__buttons { display: flex; gap: 8px; }
-.decide__btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  height: 48px; padding: 0 20px; border-radius: 12px;
-  border: 2px solid var(--border); background: #fff; color: var(--text);
-  font-size: 15px; font-weight: 500; transition: border-color .15s, background .15s;
-}
-.decide__btn:hover { border-color: #b9bdc3; }
-.decide__btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
-.decide__btn--justified.is-active { border-color: #2e9e4a; background: #f1faf3; color: #137a2c; }
-.decide__btn--unjustified.is-active { border-color: #e05a50; background: #fef3f2; color: #c62828; }
-.decide__btn:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
 .modal__body .field textarea { width: 100%; }
 
 .tfield {
@@ -724,7 +704,6 @@ body.has-tablebar .proto-footer { display: none; }
 }
 .file-chip__remove:hover { background: var(--secondary-bg); }
 .file-chip__remove svg { width: 16px; height: 16px; fill: none; stroke: #666; stroke-width: 2.2; stroke-linecap: round; }
-.verdict-result .file-list { margin-top: 12px; }
 
 .modal__dialog { max-height: calc(100vh - 32px); overflow: auto; }
 .modal__dialog--wide { max-width: 860px; }
@@ -745,6 +724,27 @@ body.has-tablebar .proto-footer { display: none; }
 .notes__form textarea { min-height: 96px; }
 .notes__text { margin: 0; white-space: pre-wrap; }
 .tfield.is-error { box-shadow: inset 0 0 0 2px #e53935; }
+
+.segmented {
+  display: inline-flex; gap: 4px; padding: 4px; margin-top: 4px;
+  background: var(--secondary-bg); border-radius: 14px; max-width: 100%;
+}
+.segmented__item {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 44px; padding: 0 18px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--text); font-size: 15px; white-space: nowrap;
+  transition: background .15s, box-shadow .15s;
+}
+.segmented__item:hover:not(:disabled) { background: rgba(255,255,255,.6); }
+.segmented__item.is-active { background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.12); font-weight: 500; }
+.segmented__item:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.segmented__dot { width: 8px; height: 8px; border-radius: 50%; background: #c4c7cc; }
+.segmented__item--pending.is-active .segmented__dot { background: #ff8a00; }
+.segmented__item--justified.is-active .segmented__dot { background: #2e9e4a; }
+.segmented__item--unjustified.is-active .segmented__dot { background: #e05a50; }
+.segmented.is-disabled .segmented__item { cursor: default; }
+.segmented.is-disabled .segmented__item:not(.is-active) { color: var(--text-muted); }
+.verdict__sub { margin: 28px 0 16px; font-size: 16px; }
 
 /* ---------- Адаптив ---------- */
 @media (max-width: 720px) {
@@ -773,8 +773,8 @@ body.has-tablebar .proto-footer { display: none; }
   .fsel { height: 64px; }
   .table--ops .col-client { max-width: 220px; }
   .op-grid { grid-template-columns: 1fr; }
-  .decide { align-items: stretch; width: 100%; }
-  .decide__btn { flex: 1; justify-content: center; }
+  .segmented { display: flex; flex-direction: column; width: 100%; }
+  .segmented__item { justify-content: flex-start; }
   .pay-card__head { flex-direction: column; }
   .facts--2 { grid-template-columns: 1fr; }
 }
@@ -825,7 +825,7 @@ body.has-tablebar .proto-footer { display: none; }
 /* Кликабельный прототип «Сообщения РФМ».
    Все данные вымышленные и живут в localStorage этого браузера. */
 
-const STORAGE_KEY = 'finmon-prototype-v8';
+const STORAGE_KEY = 'finmon-prototype-v9';
 
 /* ---------- Справочники ---------- */
 
@@ -881,7 +881,7 @@ const OSH_REASONS = {
 };
 
 const VERDICTS = {
-  pending:     { label: 'На проверке',    cls: 'pending' },
+  pending:     { label: 'Не обработана',  cls: 'pending' },
   justified:   { label: 'Обоснована',     cls: 'justified' },
   unjustified: { label: 'Не обоснована',  cls: 'unjustified' },
 };
@@ -1470,17 +1470,6 @@ function viewOperation(id) {
           ${isOsh(o) ? `<span class="tag tag--osh">ОСХ</span> ${verdictBadge(o)}` : `<span class="tag">${OP_CLASSES[o.cls]}</span>`}
         </div>
       </div>
-      ${isOsh(o) && !locked ? `
-        <div class="decide" role="group" aria-label="Заключение по операции">
-          <span class="decide__label">${o.verdict === 'pending' ? 'Операция обоснована?' : 'Заключение'}</span>
-          <div class="decide__buttons">
-            ${['justified', 'unjustified'].map((v) => `
-              <button type="button" class="decide__btn decide__btn--${v} ${o.verdict === v ? 'is-active' : ''}"
-                data-action="decide" data-op="${o.id}" data-verdict="${v}" aria-pressed="${o.verdict === v}">
-                ${o.verdict === v ? ICON.check : ''}${VERDICTS[v].label}
-              </button>`).join('')}
-          </div>
-        </div>` : ''}
     </div>
 
     <div class="op-grid">
@@ -1506,15 +1495,18 @@ function viewOperation(id) {
     </div>
 
     ${isOsh(o) ? `
-      <section class="card details notes">
-        <h2 class="details__title">Комментарий и документы</h2>
-        ${notesBlock(o, locked)}
-      </section>` : ''}
-
-    ${isOsh(o) && o.verdict !== 'pending' ? `
       <section class="card details verdict" id="verdict">
         <h2 class="details__title">Заключение</h2>
-        ${verdictResult(o, msg)}
+        <div class="segmented ${locked ? 'is-disabled' : ''}" role="radiogroup" aria-label="Заключение по операции">
+          ${Object.entries(VERDICTS).map(([v, d]) => `
+            <button type="button" role="radio" aria-checked="${o.verdict === v}"
+              class="segmented__item segmented__item--${d.cls} ${o.verdict === v ? 'is-active' : ''}"
+              data-action="decide" data-op="${o.id}" data-verdict="${v}" ${locked ? 'disabled' : ''}>
+              <span class="segmented__dot"></span>${d.label}
+            </button>`).join('')}
+        </div>
+        <h3 class="verdict__sub">Комментарий и документы</h3>
+        ${notesBlock(o, locked)}
       </section>` : ''}
 
     ${next ? `
@@ -1569,16 +1561,6 @@ function reasonDetails(o) {
     </div>`;
 }
 
-function verdictResult(o, msg) {
-  return `
-    <div class="verdict-result verdict-result--${VERDICTS[o.verdict].cls}">
-      <div class="verdict-result__head">${verdictBadge(o)}<span class="muted">${esc(o.verdictBy)} · ${o.verdictAt}</span></div>
-      <p class="verdict-result__next">${
-        msg ? `Операция включена в сообщение <a class="link" href="#/messages/${msg.id}">${msg.number}</a> (${MSG_STATUS[msg.status].label.toLowerCase()}).`
-        : o.verdict === 'unjustified' ? 'Операция попадёт в следующее сформированное сообщение и уйдёт в Росфинмониторинг.'
-        : 'Операция остаётся в системе с отметкой «Обоснована» и не попадёт в сообщение.'}</p>
-    </div>`;
-}
 
 // Шаг 2: подтверждение выбранного заключения — комментарий и файлы
 const COMMENT_MAX = 500;
@@ -1632,6 +1614,21 @@ async function addNoteFiles(o, list) {
 // Шаг 2: подтверждение выбранного заключения
 function confirmVerdict(opId, verdict) {
   const o = opById(opId);
+  if (o.verdict === verdict) return;
+  if (verdict === 'pending') {
+    openModal({
+      title: 'Снять заключение?',
+      body: `<p>Операция вернётся в статус «Не обработана»${o.verdict === 'unjustified' ? ' и не попадёт в сообщение, пока не будет нового заключения' : ''}. Комментарий и документы сохранятся.</p>`,
+      confirmText: 'Снять',
+      onConfirm() {
+        Object.assign(o, { verdict: 'pending', verdictBy: null, verdictAt: null });
+        save();
+        render({ keepScroll: true });
+        toast('Заключение снято');
+      },
+    });
+    return;
+  }
   const comment = (o.verdictComment || '').trim();
   if (comment.length < 5) {
     const field = document.getElementById('note-comment');

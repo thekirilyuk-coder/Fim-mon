@@ -625,12 +625,6 @@ body.has-tablebar .proto-footer { display: none; }
 .field textarea:focus { border-color: var(--text); }
 .verdict__actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
 
-.verdict-result { padding: 16px 20px; border-radius: 16px; background: var(--secondary-bg); }
-.verdict-result--justified { background: #f1faf3; }
-.verdict-result--unjustified { background: #fef3f2; }
-.verdict-result__head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; }
-.verdict-result__comment { margin: 12px 0 0; }
-.verdict-result__next { margin: 8px 0 0; font-size: 14px; color: var(--text-muted); }
 
 .next-op {
   display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
@@ -651,20 +645,6 @@ body.has-tablebar .proto-footer { display: none; }
   font-size: 14px; font-weight: 400; line-height: 1.5;
 }
 
-.decide { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-.decide__label { font-size: 14px; color: var(--text-muted); }
-.decide__buttons { display: flex; gap: 8px; }
-.decide__btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  height: 48px; padding: 0 20px; border-radius: 12px;
-  border: 2px solid var(--border); background: #fff; color: var(--text);
-  font-size: 15px; font-weight: 500; transition: border-color .15s, background .15s;
-}
-.decide__btn:hover { border-color: #b9bdc3; }
-.decide__btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
-.decide__btn--justified.is-active { border-color: #2e9e4a; background: #f1faf3; color: #137a2c; }
-.decide__btn--unjustified.is-active { border-color: #e05a50; background: #fef3f2; color: #c62828; }
-.decide__btn:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
 .modal__body .field textarea { width: 100%; }
 
 .tfield {
@@ -714,7 +694,6 @@ body.has-tablebar .proto-footer { display: none; }
 }
 .file-chip__remove:hover { background: var(--secondary-bg); }
 .file-chip__remove svg { width: 16px; height: 16px; fill: none; stroke: #666; stroke-width: 2.2; stroke-linecap: round; }
-.verdict-result .file-list { margin-top: 12px; }
 
 .modal__dialog { max-height: calc(100vh - 32px); overflow: auto; }
 .modal__dialog--wide { max-width: 860px; }
@@ -735,6 +714,27 @@ body.has-tablebar .proto-footer { display: none; }
 .notes__form textarea { min-height: 96px; }
 .notes__text { margin: 0; white-space: pre-wrap; }
 .tfield.is-error { box-shadow: inset 0 0 0 2px #e53935; }
+
+.segmented {
+  display: inline-flex; gap: 4px; padding: 4px; margin-top: 4px;
+  background: var(--secondary-bg); border-radius: 14px; max-width: 100%;
+}
+.segmented__item {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 44px; padding: 0 18px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--text); font-size: 15px; white-space: nowrap;
+  transition: background .15s, box-shadow .15s;
+}
+.segmented__item:hover:not(:disabled) { background: rgba(255,255,255,.6); }
+.segmented__item.is-active { background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.12); font-weight: 500; }
+.segmented__item:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.segmented__dot { width: 8px; height: 8px; border-radius: 50%; background: #c4c7cc; }
+.segmented__item--pending.is-active .segmented__dot { background: #ff8a00; }
+.segmented__item--justified.is-active .segmented__dot { background: #2e9e4a; }
+.segmented__item--unjustified.is-active .segmented__dot { background: #e05a50; }
+.segmented.is-disabled .segmented__item { cursor: default; }
+.segmented.is-disabled .segmented__item:not(.is-active) { color: var(--text-muted); }
+.verdict__sub { margin: 28px 0 16px; font-size: 16px; }
 
 /* ---------- Адаптив ---------- */
 @media (max-width: 720px) {
@@ -763,8 +763,8 @@ body.has-tablebar .proto-footer { display: none; }
   .fsel { height: 64px; }
   .table--ops .col-client { max-width: 220px; }
   .op-grid { grid-template-columns: 1fr; }
-  .decide { align-items: stretch; width: 100%; }
-  .decide__btn { flex: 1; justify-content: center; }
+  .segmented { display: flex; flex-direction: column; width: 100%; }
+  .segmented__item { justify-content: flex-start; }
   .pay-card__head { flex-direction: column; }
   .facts--2 { grid-template-columns: 1fr; }
 }
