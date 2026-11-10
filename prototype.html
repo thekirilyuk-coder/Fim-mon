@@ -1245,7 +1245,8 @@ function opsTable(ops, { selectable = false, fixable = false, showMessage = true
         </tr></thead>
         <tbody>
           ${ops.map((o) => {
-            const msg = o.messageId || o.prevMessage;
+            // у операций ОСХ номера сообщения нет
+            const msg = isOsh(o) ? null : (o.messageId || o.prevMessage);
             const link = review && isOsh(o);
             return `
             <tr class="${selectable && ui.selected.has(o.id) ? 'is-selected' : ''} ${link ? 'is-link' : ''}" ${link ? `data-href="#/operations/${o.id}"` : ''}>
@@ -1528,7 +1529,6 @@ function viewOperation(id) {
           <div><dt>Тип</dt><dd>${o.kind}</dd></div>
           <div><dt>Номер записи</dt><dd>${o.record || '—'}<small>АПП ${o.appDate}</small></dd></div>
           <div><dt>Сумма</dt><dd>${o.reason === 'thirdParty' ? kop(o.details.payment.amount) : money(o.amount)}</dd></div>
-          <div><dt>Сообщение</dt><dd>${msg ? `<a class="link" href="#/messages/${msg.id}">${msg.number}</a><small>${MSG_STATUS[msg.status].label}</small>` : '—'}</dd></div>
         </dl>
       </section>
 
@@ -1744,7 +1744,7 @@ function operationsList() {
       <button class="btn btn--secondary btn--sm empty__btn" type="button" data-action="reset-filters">Сбросить фильтры</button></div>`;
   }
   return `
-    ${opsTable(shown, { review: ui.opsClass !== 'mandatory' })}
+    ${opsTable(shown, { review: ui.opsClass !== 'mandatory', showMessage: ui.opsClass !== 'suspicious' })}
     ${list.length > shown.length
       ? `<div class="more"><button class="btn btn--secondary" type="button" data-action="more">Показать ещё · осталось ${list.length - shown.length}</button></div>`
       : ''}`;
