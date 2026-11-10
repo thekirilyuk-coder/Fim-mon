@@ -506,7 +506,8 @@ body.has-tablebar .proto-footer { display: none; }
 .facts--modal dd { font-size: 15px; }
 
 /* ---------- Список операций: фильтры (макет «Операции») ---------- */
-.filters--ops { grid-template-columns: repeat(3, 1fr); }
+.filters--ops { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.filters > * { min-width: 0; }
 .filters--ops .filters__row { grid-column: 1 / -1; }
 .filters--ops .filters__row input { border-radius: 12px 12px 0 0; height: 76px; }
 .fsel {
@@ -740,6 +741,16 @@ body.has-tablebar .proto-footer { display: none; }
 .segmented.is-disabled .segmented__item:not(.is-active) { color: var(--text-muted); }
 .verdict__sub { margin: 28px 0 16px; font-size: 16px; }
 
+/* ---------- Белая колонка вместо карточки ---------- */
+body.is-column .page { padding-top: 0; padding-bottom: 0; }
+body.is-column .picker {
+  border-radius: 0; margin: 0;
+  min-height: calc(100vh - 104px);
+  padding: 28px 28px 40px;
+}
+body.is-column.has-tablebar .picker { min-height: calc(100vh - 104px - 96px); }
+body.is-column .proto-footer { display: none; }
+
 /* ---------- Адаптив ---------- */
 @media (max-width: 720px) {
   .page { padding-top: 28px; }
@@ -759,10 +770,12 @@ body.has-tablebar .proto-footer { display: none; }
   .selbar__actions { justify-content: flex-end; }
   .modal__actions .btn { flex: 1; }
   .picker { padding: 20px 16px; }
+  body.is-column .page { padding-left: 0; padding-right: 0; }
+  body.is-column .picker { padding: 20px 16px 32px; }
   .filters { grid-template-columns: 1fr; gap: 8px; }
   .filters input, .filters select { border-radius: 12px; height: 52px; }
   .tablebar .btn { height: 52px; }
-  .filters--ops { grid-template-columns: 1fr; }
+  .filters--ops { grid-template-columns: minmax(0, 1fr); }
   .filters--ops .filters__row input, .filters--ops > .fsel { border-radius: 12px !important; }
   .fsel { height: 64px; }
   .table--ops .col-client { max-width: 220px; }

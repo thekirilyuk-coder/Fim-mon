@@ -1024,6 +1024,8 @@ function render({ keepScroll = false } = {}) {
   const app = document.getElementById('app');
   app.innerHTML = html;
   document.body.classList.toggle('has-tablebar', parts[0] === 'create');
+  // «Операции» и выбор операций — белая колонка во всю высоту, а не карточка-остров
+  document.body.classList.toggle('is-column', parts[0] === 'create' || (parts[0] === 'operations' && !parts[1]));
   syncIndeterminate();
   renderUser();
   if (route !== currentRoute && !keepScroll) window.scrollTo(0, 0);
