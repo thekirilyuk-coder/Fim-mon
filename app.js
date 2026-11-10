@@ -57,7 +57,7 @@ const OSH_REASONS = {
 };
 
 const VERDICTS = {
-  pending:     { label: 'Не обработана',  cls: 'pending' },
+  pending:     { label: 'Нет решения',    cls: 'pending' },
   justified:   { label: 'Обоснована',     cls: 'justified' },
   unjustified: { label: 'Не обоснована',  cls: 'unjustified' },
 };
@@ -332,7 +332,7 @@ const ICON = {
   check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
 };
 
-const verdictBadge = (o) => `<span class="vbadge vbadge--${VERDICTS[o.verdict].cls}">${VERDICTS[o.verdict].label}</span>`;
+const verdictBadge = (o) => `<span class="vstatus vstatus--${VERDICTS[o.verdict].cls}">${VERDICTS[o.verdict].label}</span>`;
 const statusPill = (m) => `<span class="status status--${MSG_STATUS[m.status].cls}">${MSG_STATUS[m.status].label}</span>`;
 const warnMark = (m) => hasIssue(m) ? `<span class="warn" title="Требует внимания" aria-label="Требует внимания">${ICON.warn}</span>` : '';
 

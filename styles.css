@@ -13,6 +13,7 @@
   --ok: #00b92d;
   --info: #428bf9;
   --offline: #9b59d0;
+  --danger: #f52222;
   --radius-card: 24px;
   --radius-btn: 12px;
 }
@@ -567,14 +568,6 @@ body.has-tablebar .proto-footer { display: none; }
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- ОСХ: проверка операций ---------- */
-.vbadge {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 3px 10px; border-radius: 8px; font-size: 13px; font-weight: 500; white-space: nowrap;
-}
-.vbadge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.vbadge--pending { background: #fff1dc; color: #b55d00; }
-.vbadge--justified { background: #e6f6ea; color: #137a2c; }
-.vbadge--unjustified { background: #fde8e7; color: #c62828; }
 
 .tag {
   display: inline-block; padding: 3px 10px; border-radius: 8px;
@@ -734,9 +727,9 @@ body.has-tablebar .proto-footer { display: none; }
 .segmented__item.is-active { background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.12); font-weight: 500; }
 .segmented__item:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
 .segmented__dot { width: 8px; height: 8px; border-radius: 50%; background: #c4c7cc; }
-.segmented__item--pending.is-active .segmented__dot { background: #ff8a00; }
-.segmented__item--justified.is-active .segmented__dot { background: #2e9e4a; }
-.segmented__item--unjustified.is-active .segmented__dot { background: #e05a50; }
+.segmented__item--pending.is-active .segmented__dot { background: var(--info); }
+.segmented__item--justified.is-active .segmented__dot { background: var(--ok); }
+.segmented__item--unjustified.is-active .segmented__dot { background: var(--danger); }
 .segmented.is-disabled .segmented__item { cursor: default; }
 .segmented.is-disabled .segmented__item:not(.is-active) { color: var(--text-muted); }
 .verdict__sub { margin: 28px 0 16px; font-size: 16px; }
@@ -770,6 +763,14 @@ body.is-column .proto-footer { display: none; }
   background: var(--secondary-bg); border-radius: 10px; padding: 12px 14px; max-width: 900px;
 }
 .op-page .term { margin-top: 16px; max-width: 480px; }
+
+/* ---------- Статус заключения ОСХ: точка + текст ---------- */
+.vstatus { display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; }
+.vstatus::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.vstatus--pending::before { background: var(--info); }
+.vstatus--justified::before { background: var(--ok); }
+.vstatus--unjustified::before { background: var(--danger); }
+.page-head__status .vstatus { margin: 0 6px; font-size: 14px; }
 
 /* ---------- Адаптив ---------- */
 @media (max-width: 720px) {
