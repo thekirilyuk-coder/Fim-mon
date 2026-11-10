@@ -760,6 +760,17 @@ body.is-column .proto-footer { display: none; }
 
 .verdict__sub--switch { margin-top: 32px; }
 
+/* ---------- Блоки операции друг под другом ---------- */
+.op-page .op-grid { grid-template-columns: 1fr; gap: 40px; }
+.facts--op { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px 24px; }
+.facts--op dd { font-size: 15px; }
+.facts__wide { grid-column: 1 / -1; }
+.facts dd.purpose {
+  font-weight: 400; font-size: 14px; line-height: 1.5;
+  background: var(--secondary-bg); border-radius: 10px; padding: 12px 14px; max-width: 900px;
+}
+.op-page .term { margin-top: 16px; max-width: 480px; }
+
 /* ---------- Адаптив ---------- */
 @media (max-width: 720px) {
   .page { padding-top: 28px; }
@@ -790,6 +801,7 @@ body.is-column .proto-footer { display: none; }
   .table--ops .col-client { max-width: 220px; }
   .op-grid { grid-template-columns: 1fr; }
   .op-page .op-grid { gap: 28px; }
+  .facts--op { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .segmented { display: flex; flex-direction: column; width: 100%; }
   .segmented__item { justify-content: flex-start; }
   .pay-card__head { flex-direction: column; }

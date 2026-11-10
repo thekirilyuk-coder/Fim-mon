@@ -656,14 +656,14 @@ function viewOperation(id) {
     <div class="op-grid">
       <section class="op-section">
         <h2 class="details__title">Операция</h2>
-        <dl class="facts facts--2">
+        <dl class="facts facts--op">
           <div><dt>Лизингополучатель</dt><dd>${esc(o.client)}</dd></div>
           <div><dt>ИНН</dt><dd>${o.inn || '<span class="text-warn">не указан</span>'}</dd></div>
           <div><dt>Договор лизинга</dt><dd>${o.contract}<small>выдан ${o.contractDate}</small></dd></div>
           <div><dt>Тип</dt><dd>${o.kind}</dd></div>
           <div><dt>Номер записи</dt><dd>${o.record || '—'}<small>АПП ${o.appDate}</small></dd></div>
           <div><dt>Дней просрочки</dt><dd>${o.overdueDays}<small>выявлено ${o.detectedDate}</small></dd></div>
-          <div><dt>Сумма</dt><dd>${money(o.amount)}</dd></div>
+          <div><dt>Сумма</dt><dd>${o.reason === 'thirdParty' ? kop(o.details.payment.amount) : money(o.amount)}</dd></div>
           <div><dt>Сообщение</dt><dd>${msg ? `<a class="link" href="#/messages/${msg.id}">${msg.number}</a><small>${MSG_STATUS[msg.status].label}</small>` : '—'}</dd></div>
         </dl>
       </section>
@@ -702,44 +702,31 @@ function reasonDetails(o) {
   if (o.reason === 'thirdParty') {
     const p = d.payment;
     return `
-      <div class="pay-card__head">
-        <div>
-          <div class="pay-card__title">Поступление на расчётный счёт ${p.receipt}</div>
-          <div class="sub">${p.date} ${p.time}</div>
-        </div>
-        <div class="pay-card__sum">${kop(p.amount)}</div>
-      </div>
-      <dl class="facts facts--2 pay-facts">
+      <dl class="facts facts--op">
+        <div><dt>Поступление на р/с</dt><dd>${p.receipt}<small>${p.date} ${p.time}</small></dd></div>
         <div><dt>Плательщик — третье лицо</dt><dd>${esc(d.payer)}<small>ИНН ${d.payerInn}</small></dd></div>
-        <div><dt>Контрагент по договору</dt><dd>${esc(o.client)}<small>ИНН ${o.inn || '—'}</small></dd></div>
         <div><dt>Входящий документ</dt><dd>№ ${p.incomingNo}<small>от ${p.incomingDate}</small></dd></div>
-        <div><dt>Договор лизинга</dt><dd>№${o.contract.replace(' ', '0')}<small>от ${o.contractDate}</small></dd></div>
-        <div class="pay-card__purpose"><dt>Назначение платежа</dt><dd>${esc(p.purpose)}</dd></div>
+        <div class="facts__wide"><dt>Назначение платежа</dt><dd class="purpose">${esc(p.purpose)}</dd></div>
       </dl>`;
   }
   if (o.reason === 'leaseback') {
     return `
-      <dl class="facts facts--2">
+      <dl class="facts facts--op">
         <div><dt>Предмет лизинга</dt><dd>${d.asset}</dd></div>
         <div><dt>Цена покупки</dt><dd>${money(d.price)}</dd></div>
-        <div><dt>Продавец</dt><dd>${esc(d.seller)}<small>ИНН ${d.sellerInn || '—'}</small></dd></div>
-        <div><dt>Лизингополучатель</dt><dd>${esc(o.client)}<small class="text-warn">совпадает с продавцом</small></dd></div>
+        <div><dt>Продавец</dt><dd class="text-warn">Совпадает с лизингополучателем</dd></div>
         <div><dt>Договор купли-продажи</dt><dd>${d.saleContract}<small>от ${d.saleDate}</small></dd></div>
-        <div><dt>Договор лизинга</dt><dd>${o.contract}<small>от ${o.contractDate}</small></dd></div>
       </dl>`;
   }
   const share = Math.round((d.usedMonths / d.plannedMonths) * 100);
   return `
-    <dl class="facts facts--2">
+    <dl class="facts facts--op">
       <div><dt>Предмет лизинга</dt><dd>${d.asset}</dd></div>
       <div><dt>Сумма досрочного выкупа</dt><dd>${money(d.buyout)}</dd></div>
-      <div><dt>Начало лизинга</dt><dd>${d.startDate}</dd></div>
       <div><dt>Досрочное завершение</dt><dd>${d.endDate}</dd></div>
+      <div><dt>Срок пользования</dt><dd>${d.usedMonths} из ${d.plannedMonths} мес.<small>${share}% срока</small></dd></div>
     </dl>
-    <div class="term">
-      <div class="term__bar"><span style="width:${Math.max(share, 3)}%"></span></div>
-      <div class="term__text">Пользовался <b>${d.usedMonths} ${plural(d.usedMonths, ['месяц', 'месяца', 'месяцев'])}</b> из ${d.plannedMonths} по договору — ${share}% срока</div>
-    </div>`;
+    <div class="term"><div class="term__bar"><span style="width:${Math.max(share, 3)}%"></span></div></div>`;
 }
 
 
