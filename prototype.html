@@ -1513,7 +1513,6 @@ function viewOperation(id) {
       <div>
         <h1 class="picker__title">${esc(o.client)}</h1>
         <div class="page-head__status">
-          ${isOsh(o) ? `<span class="tag tag--osh">ОСХ</span> ${verdictBadge(o)}` : `<span class="tag">${OP_CLASSES[o.cls]}</span>`}
           ${isOsh(o) ? `<span class="tag">${OSH_REASONS[o.reason].label}</span>` : ''}
           <span class="tag">Выявлено ${o.detectedDate}</span>
         </div>
