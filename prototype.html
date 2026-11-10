@@ -1526,7 +1526,6 @@ function viewOperation(id) {
           <div><dt>Лизингополучатель</dt><dd>${esc(o.client)}</dd></div>
           <div><dt>ИНН</dt><dd>${o.inn || '<span class="text-warn">не указан</span>'}</dd></div>
           <div><dt>Договор лизинга</dt><dd>${o.contract}<small>выдан ${o.contractDate}</small></dd></div>
-          <div><dt>Тип</dt><dd>${o.kind}</dd></div>
           <div><dt>Сумма</dt><dd>${o.reason === 'thirdParty' ? kop(o.details.payment.amount) : money(o.amount)}</dd></div>
         </dl>
       </section>
