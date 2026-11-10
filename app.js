@@ -650,7 +650,7 @@ function viewOperation(id) {
         <h1 class="picker__title">${esc(o.client)}</h1>
         <div class="page-head__status">
           ${isOsh(o) ? `<span class="tag tag--osh">ОСХ</span> ${verdictBadge(o)}` : `<span class="tag">${OP_CLASSES[o.cls]}</span>`}
-          <span class="tag">${o.kind}</span>
+          ${isOsh(o) ? `<span class="tag">${OSH_REASONS[o.reason].label}</span>` : ''}
           <span class="tag">Выявлено ${o.detectedDate}</span>
         </div>
       </div>
@@ -663,6 +663,7 @@ function viewOperation(id) {
           <div><dt>Лизингополучатель</dt><dd>${esc(o.client)}</dd></div>
           <div><dt>ИНН</dt><dd>${o.inn || '<span class="text-warn">не указан</span>'}</dd></div>
           <div><dt>Договор лизинга</dt><dd>${o.contract}<small>выдан ${o.contractDate}</small></dd></div>
+          <div><dt>Тип</dt><dd>${o.kind}</dd></div>
           <div><dt>Сумма</dt><dd>${o.reason === 'thirdParty' ? kop(o.details.payment.amount) : money(o.amount)}</dd></div>
         </dl>
       </section>
