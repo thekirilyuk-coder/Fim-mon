@@ -265,7 +265,7 @@ const ui = {
   msgFilter: 'all', msgQuery: '',
   opsQuery: '', opsClass: 'suspicious', opsKind: '', opsFrom: '', opsTo: '', opsLimit: 20,
   periodOpen: false,
-  pickQuery: '', pickKind: '',
+  pickQuery: '', pickKind: '', pickClasses: [], classMenuOpen: false,
   selected: new Set(),
   draftNumber: null,
   draft: null,
@@ -891,7 +891,7 @@ function viewCreate() {
     ui.draftNumber = nextNumber();
     // по умолчанию выбраны все операции, готовые к отправке
     ui.selected = new Set(readyOps().map((o) => o.id));
-    ui.pickQuery = ''; ui.pickKind = '';
+    ui.pickQuery = ''; ui.pickKind = ''; ui.pickClasses = []; ui.classMenuOpen = false;
   }
   setNav([], { tab: { label: `Сообщение ${ui.draftNumber}`, closeHref: '#/' } });
   return `
@@ -899,7 +899,7 @@ function viewCreate() {
       <h1 class="picker__title">Сообщение ${ui.draftNumber}</h1>
       <h2 class="picker__subtitle">Выбери операции, которые войдут в сообщение</h2>
 
-      <div class="filters">
+      <div class="filters filters--pick">
         <label class="filters__search">
           <input type="search" id="pick-search" placeholder="Лизингополучатель, номер договора лизинга, или номер записи" value="${esc(ui.pickQuery)}" aria-label="Поиск">
         </label>
@@ -909,6 +909,7 @@ function viewCreate() {
             ${OP_KINDS.map((k) => `<option value="${k}" ${ui.pickKind === k ? 'selected' : ''}>${k}</option>`).join('')}
           </select>
         </label>
+        ${classMenu()}
       </div>
 
       <div id="list">${pickerList()}</div>
@@ -920,9 +921,40 @@ function viewCreate() {
     </div>`;
 }
 
+// Фильтр «Класс» на экране выбора операций: ОПОК / ОСХ со счётчиками
+const PICK_CLASSES = [['mandatory', 'ОПОК'], ['suspicious', 'ОСХ']];
+
+function classMenu() {
+  const count = (cls) => readyOps().filter((o) => o.cls === cls).length;
+  const value = PICK_CLASSES.filter(([k]) => ui.pickClasses.includes(k)).map(([, l]) => l).join(', ');
+  return `
+    <div class="fsel fsel--menu ${value ? 'has-value' : ''} ${ui.classMenuOpen ? 'is-open' : ''}">
+      <button type="button" class="fsel__trigger" data-action="toggle-class-menu" aria-haspopup="listbox" aria-expanded="${ui.classMenuOpen}">
+        <span class="fsel__label">Класс</span>
+        <span class="fsel__value">${value}</span>
+      </button>
+      ${value ? `<button type="button" class="fsel__clear" data-action="clear-classes" aria-label="Очистить класс">${ICON.close}</button>` : ''}
+      ${CHEVRON}
+      ${ui.classMenuOpen ? `
+        <div class="menu" role="listbox" aria-multiselectable="true" aria-label="Класс">
+          ${PICK_CLASSES.map(([k, l]) => {
+            const on = ui.pickClasses.includes(k);
+            return `
+              <button type="button" class="menu__item" role="option" aria-selected="${on}" data-action="pick-class" data-cls="${k}">
+                <span class="menu__label">${l}</span>
+                <span class="menu__count">${count(k)}</span>
+                <span class="menu__check">${on ? ICON.check : ''}</span>
+              </button>`;
+          }).join('')}
+        </div>` : ''}
+    </div>`;
+}
+
 function pickerOps() {
   const q = ui.pickQuery.trim().toLowerCase();
-  return readyOps().filter((o) => matches(o, q) && (!ui.pickKind || o.kind === ui.pickKind));
+  return readyOps().filter((o) => matches(o, q)
+    && (!ui.pickKind || o.kind === ui.pickKind)
+    && (!ui.pickClasses.length || ui.pickClasses.includes(o.cls)));
 }
 
 function pickerList() {
@@ -1194,6 +1226,13 @@ document.addEventListener('click', (e) => {
         return;
       case 'pick-files': return document.getElementById('note-files').click();
       case 'toggle-period': ui.periodOpen = !ui.periodOpen; return render({ keepScroll: true });
+      case 'toggle-class-menu': ui.classMenuOpen = !ui.classMenuOpen; return render({ keepScroll: true });
+      case 'clear-classes': ui.pickClasses = []; ui.classMenuOpen = false; return render({ keepScroll: true });
+      case 'pick-class': {
+        const k = actionEl.dataset.cls;
+        ui.pickClasses = ui.pickClasses.includes(k) ? ui.pickClasses.filter((x) => x !== k) : [...ui.pickClasses, k];
+        return render({ keepScroll: true });
+      }
       case 'clear-period': ui.opsFrom = ui.opsTo = ''; ui.periodOpen = false; return render({ keepScroll: true });
       case 'period-preset': {
         // считаем от самой свежей даты в данных, чтобы пресеты что-то находили
@@ -1230,6 +1269,7 @@ document.addEventListener('click', (e) => {
   }
   // клик мимо окна периода закрывает его
   if (ui.periodOpen && !e.target.closest('.fsel--period')) { ui.periodOpen = false; render({ keepScroll: true }); return; }
+  if (ui.classMenuOpen && !e.target.closest('.fsel--menu')) { ui.classMenuOpen = false; render({ keepScroll: true }); return; }
   // клик по строке таблицы сообщений открывает сообщение
   const row = e.target.closest('tr[data-href]');
   if (row && !e.target.closest('a, button, input, label')) { go(row.dataset.href.slice(1)); return; }
@@ -1328,6 +1368,13 @@ document.addEventListener('drop', (e) => {
   e.preventDefault();
   zone.classList.remove('is-over');
   addNoteFiles([...e.dataTransfer.files]);
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && ui.classMenuOpen && !document.querySelector('.modal')) {
+    ui.classMenuOpen = false;
+    render({ keepScroll: true });
+  }
 });
 
 window.addEventListener('popstate', () => {

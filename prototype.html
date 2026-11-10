@@ -782,6 +782,36 @@ body.is-column .proto-footer { display: none; }
 .vstatus--unjustified::before { background: var(--danger); }
 .page-head__status .vstatus { margin: 0 6px; font-size: 14px; }
 
+/* ---------- Фильтры выбора операций: поиск / Тип / Класс ---------- */
+.filters--pick { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); }
+.filters--pick .filters__select select { border-radius: 0; }
+.filters--pick .fsel { height: 64px; border-radius: 0 12px 12px 0; padding-left: 18px; }
+.filters--pick .fsel__trigger { padding-left: 18px; }
+.filters--pick .fsel__label { font-size: 15px; }
+.filters--pick .fsel.has-value .fsel__label { font-size: 12px; }
+.filters--pick .fsel__value { font-size: 15px; }
+.fsel--menu.is-open { box-shadow: inset 0 0 0 1.5px var(--text); background: #fff; }
+
+.menu {
+  position: absolute; top: calc(100% + 8px); left: 0; right: 0; z-index: 30;
+  padding: 6px; background: #fff; border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.16); animation: pop .12s;
+}
+.menu__item {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  height: 48px; padding: 0 12px; border: 0; border-radius: 10px;
+  background: none; text-align: left; color: var(--text); font-size: 15px;
+}
+.menu__item:hover, .menu__item:focus-visible { background: var(--secondary-bg); outline: none; }
+.menu__label { flex: 1; }
+.menu__count {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  display: grid; place-items: center;
+  background: var(--danger); color: #fff; font-size: 12px; font-weight: 600;
+}
+.menu__check { width: 20px; height: 20px; display: grid; place-items: center; }
+.menu__check svg { width: 18px; height: 18px; fill: none; stroke: var(--link); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+
 /* ---------- Адаптив ---------- */
 @media (max-width: 720px) {
   .page { padding-top: 28px; }
@@ -807,6 +837,8 @@ body.is-column .proto-footer { display: none; }
   .filters input, .filters select { border-radius: 12px; height: 52px; }
   .tablebar .btn { height: 52px; }
   .filters--ops { grid-template-columns: minmax(0, 1fr); }
+  .filters--pick { grid-template-columns: minmax(0, 1fr); }
+  .filters--pick .fsel { border-radius: 12px; }
   .filters--ops .filters__row input, .filters--ops > .fsel { border-radius: 12px !important; }
   .fsel { height: 64px; }
   .table--ops .col-client { max-width: 220px; }
@@ -1129,7 +1161,7 @@ const ui = {
   msgFilter: 'all', msgQuery: '',
   opsQuery: '', opsClass: 'suspicious', opsKind: '', opsFrom: '', opsTo: '', opsLimit: 20,
   periodOpen: false,
-  pickQuery: '', pickKind: '',
+  pickQuery: '', pickKind: '', pickClasses: [], classMenuOpen: false,
   selected: new Set(),
   draftNumber: null,
   draft: null,
@@ -1755,7 +1787,7 @@ function viewCreate() {
     ui.draftNumber = nextNumber();
     // по умолчанию выбраны все операции, готовые к отправке
     ui.selected = new Set(readyOps().map((o) => o.id));
-    ui.pickQuery = ''; ui.pickKind = '';
+    ui.pickQuery = ''; ui.pickKind = ''; ui.pickClasses = []; ui.classMenuOpen = false;
   }
   setNav([], { tab: { label: `Сообщение ${ui.draftNumber}`, closeHref: '#/' } });
   return `
@@ -1763,7 +1795,7 @@ function viewCreate() {
       <h1 class="picker__title">Сообщение ${ui.draftNumber}</h1>
       <h2 class="picker__subtitle">Выбери операции, которые войдут в сообщение</h2>
 
-      <div class="filters">
+      <div class="filters filters--pick">
         <label class="filters__search">
           <input type="search" id="pick-search" placeholder="Лизингополучатель, номер договора лизинга, или номер записи" value="${esc(ui.pickQuery)}" aria-label="Поиск">
         </label>
@@ -1773,6 +1805,7 @@ function viewCreate() {
             ${OP_KINDS.map((k) => `<option value="${k}" ${ui.pickKind === k ? 'selected' : ''}>${k}</option>`).join('')}
           </select>
         </label>
+        ${classMenu()}
       </div>
 
       <div id="list">${pickerList()}</div>
@@ -1784,9 +1817,40 @@ function viewCreate() {
     </div>`;
 }
 
+// Фильтр «Класс» на экране выбора операций: ОПОК / ОСХ со счётчиками
+const PICK_CLASSES = [['mandatory', 'ОПОК'], ['suspicious', 'ОСХ']];
+
+function classMenu() {
+  const count = (cls) => readyOps().filter((o) => o.cls === cls).length;
+  const value = PICK_CLASSES.filter(([k]) => ui.pickClasses.includes(k)).map(([, l]) => l).join(', ');
+  return `
+    <div class="fsel fsel--menu ${value ? 'has-value' : ''} ${ui.classMenuOpen ? 'is-open' : ''}">
+      <button type="button" class="fsel__trigger" data-action="toggle-class-menu" aria-haspopup="listbox" aria-expanded="${ui.classMenuOpen}">
+        <span class="fsel__label">Класс</span>
+        <span class="fsel__value">${value}</span>
+      </button>
+      ${value ? `<button type="button" class="fsel__clear" data-action="clear-classes" aria-label="Очистить класс">${ICON.close}</button>` : ''}
+      ${CHEVRON}
+      ${ui.classMenuOpen ? `
+        <div class="menu" role="listbox" aria-multiselectable="true" aria-label="Класс">
+          ${PICK_CLASSES.map(([k, l]) => {
+            const on = ui.pickClasses.includes(k);
+            return `
+              <button type="button" class="menu__item" role="option" aria-selected="${on}" data-action="pick-class" data-cls="${k}">
+                <span class="menu__label">${l}</span>
+                <span class="menu__count">${count(k)}</span>
+                <span class="menu__check">${on ? ICON.check : ''}</span>
+              </button>`;
+          }).join('')}
+        </div>` : ''}
+    </div>`;
+}
+
 function pickerOps() {
   const q = ui.pickQuery.trim().toLowerCase();
-  return readyOps().filter((o) => matches(o, q) && (!ui.pickKind || o.kind === ui.pickKind));
+  return readyOps().filter((o) => matches(o, q)
+    && (!ui.pickKind || o.kind === ui.pickKind)
+    && (!ui.pickClasses.length || ui.pickClasses.includes(o.cls)));
 }
 
 function pickerList() {
@@ -2058,6 +2122,13 @@ document.addEventListener('click', (e) => {
         return;
       case 'pick-files': return document.getElementById('note-files').click();
       case 'toggle-period': ui.periodOpen = !ui.periodOpen; return render({ keepScroll: true });
+      case 'toggle-class-menu': ui.classMenuOpen = !ui.classMenuOpen; return render({ keepScroll: true });
+      case 'clear-classes': ui.pickClasses = []; ui.classMenuOpen = false; return render({ keepScroll: true });
+      case 'pick-class': {
+        const k = actionEl.dataset.cls;
+        ui.pickClasses = ui.pickClasses.includes(k) ? ui.pickClasses.filter((x) => x !== k) : [...ui.pickClasses, k];
+        return render({ keepScroll: true });
+      }
       case 'clear-period': ui.opsFrom = ui.opsTo = ''; ui.periodOpen = false; return render({ keepScroll: true });
       case 'period-preset': {
         // считаем от самой свежей даты в данных, чтобы пресеты что-то находили
@@ -2094,6 +2165,7 @@ document.addEventListener('click', (e) => {
   }
   // клик мимо окна периода закрывает его
   if (ui.periodOpen && !e.target.closest('.fsel--period')) { ui.periodOpen = false; render({ keepScroll: true }); return; }
+  if (ui.classMenuOpen && !e.target.closest('.fsel--menu')) { ui.classMenuOpen = false; render({ keepScroll: true }); return; }
   // клик по строке таблицы сообщений открывает сообщение
   const row = e.target.closest('tr[data-href]');
   if (row && !e.target.closest('a, button, input, label')) { go(row.dataset.href.slice(1)); return; }
@@ -2192,6 +2264,13 @@ document.addEventListener('drop', (e) => {
   e.preventDefault();
   zone.classList.remove('is-over');
   addNoteFiles([...e.dataTransfer.files]);
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && ui.classMenuOpen && !document.querySelector('.modal')) {
+    ui.classMenuOpen = false;
+    render({ keepScroll: true });
+  }
 });
 
 window.addEventListener('popstate', () => {

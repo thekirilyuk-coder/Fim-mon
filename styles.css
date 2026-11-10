@@ -772,6 +772,36 @@ body.is-column .proto-footer { display: none; }
 .vstatus--unjustified::before { background: var(--danger); }
 .page-head__status .vstatus { margin: 0 6px; font-size: 14px; }
 
+/* ---------- Фильтры выбора операций: поиск / Тип / Класс ---------- */
+.filters--pick { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); }
+.filters--pick .filters__select select { border-radius: 0; }
+.filters--pick .fsel { height: 64px; border-radius: 0 12px 12px 0; padding-left: 18px; }
+.filters--pick .fsel__trigger { padding-left: 18px; }
+.filters--pick .fsel__label { font-size: 15px; }
+.filters--pick .fsel.has-value .fsel__label { font-size: 12px; }
+.filters--pick .fsel__value { font-size: 15px; }
+.fsel--menu.is-open { box-shadow: inset 0 0 0 1.5px var(--text); background: #fff; }
+
+.menu {
+  position: absolute; top: calc(100% + 8px); left: 0; right: 0; z-index: 30;
+  padding: 6px; background: #fff; border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.16); animation: pop .12s;
+}
+.menu__item {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  height: 48px; padding: 0 12px; border: 0; border-radius: 10px;
+  background: none; text-align: left; color: var(--text); font-size: 15px;
+}
+.menu__item:hover, .menu__item:focus-visible { background: var(--secondary-bg); outline: none; }
+.menu__label { flex: 1; }
+.menu__count {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  display: grid; place-items: center;
+  background: var(--danger); color: #fff; font-size: 12px; font-weight: 600;
+}
+.menu__check { width: 20px; height: 20px; display: grid; place-items: center; }
+.menu__check svg { width: 18px; height: 18px; fill: none; stroke: var(--link); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+
 /* ---------- Адаптив ---------- */
 @media (max-width: 720px) {
   .page { padding-top: 28px; }
@@ -797,6 +827,8 @@ body.is-column .proto-footer { display: none; }
   .filters input, .filters select { border-radius: 12px; height: 52px; }
   .tablebar .btn { height: 52px; }
   .filters--ops { grid-template-columns: minmax(0, 1fr); }
+  .filters--pick { grid-template-columns: minmax(0, 1fr); }
+  .filters--pick .fsel { border-radius: 12px; }
   .filters--ops .filters__row input, .filters--ops > .fsel { border-radius: 12px !important; }
   .fsel { height: 64px; }
   .table--ops .col-client { max-width: 220px; }
