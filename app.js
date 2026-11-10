@@ -1,7 +1,7 @@
 /* Кликабельный прототип «Сообщения РФМ».
    Все данные вымышленные и живут в localStorage этого браузера. */
 
-const STORAGE_KEY = 'finmon-prototype-v7';
+const STORAGE_KEY = 'finmon-prototype-v8';
 
 /* ---------- Справочники ---------- */
 
@@ -79,6 +79,22 @@ const THIRD_PARTIES = [
 const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 
 /* ---------- Начальные данные ---------- */
+
+// Демо-документ (SVG-«скан»), чтобы было что открыть в попапе
+function demoDoc(title, o) {
+  const lines = Array.from({ length: 14 }, (_, i) =>
+    `<rect x="60" y="${210 + i * 26}" width="${i % 4 === 3 ? 260 : 480}" height="8" rx="4" fill="#d5d8dc"/>`).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800">
+    <rect width="600" height="800" fill="#fff"/>
+    <text x="60" y="90" font-family="Arial" font-size="26" font-weight="700" fill="#333">${title}</text>
+    <text x="60" y="130" font-family="Arial" font-size="16" fill="#666">${o.client.replace(/[«»]/g, '"')}</text>
+    <text x="60" y="156" font-family="Arial" font-size="16" fill="#666">Договор лизинга ${o.contract} от ${o.contractDate}</text>
+    ${lines}
+    <text x="60" y="660" font-family="Arial" font-size="16" fill="#666">Подпись ______________</text>
+    <circle cx="440" cy="650" r="48" fill="none" stroke="#5b7fd6" stroke-width="3" opacity=".7"/>
+  </svg>`;
+  return { name: `${title}.svg`, type: 'image/svg+xml', size: svg.length, data: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg) };
+}
 
 function makeSeed() {
   let s = 42;
@@ -228,11 +244,14 @@ function makeSeed() {
     o.record = null;
     free.push(o);
   }
+  const DOCS = ['Письмо лизингополучателя', 'Отчёт об оценке предмета лизинга', 'Кредитный договор'];
   for (let i = 0; i < 3; i++) {
-    free.push(decide(addReason(makeOp('08.01.2025', null), reasons[i]), 'justified',
+    const done = decide(addReason(makeOp('08.01.2025', null), reasons[i]), 'justified',
       ['Плательщик — поручитель по договору, есть письмо лизингополучателя.',
        'Возвратный лизинг для пополнения оборотных средств, сделка по рыночной цене.',
-       'Досрочный выкуп за счёт кредита банка, документы приложены.'][i]));
+       'Досрочный выкуп за счёт кредита банка, документы приложены.'][i]);
+    done.verdictFiles = [demoDoc(DOCS[i], done)];
+    free.push(done);
   }
   ops.push(...free.reverse());
 
@@ -245,7 +264,6 @@ let state = load();
 const ui = {
   msgFilter: 'all', msgQuery: '',
   opsQuery: '', opsClass: 'suspicious', opsKind: '', opsVerdict: '', opsFrom: '', opsTo: '', opsLimit: 20,
-  verdictDraft: null,
   periodOpen: false,
   pickQuery: '', pickKind: '',
   selected: new Set(),
@@ -310,6 +328,7 @@ const ICON = {
   search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>',
   back: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
 };
 
 const verdictBadge = (o) => `<span class="vbadge vbadge--${VERDICTS[o.verdict].cls}">${VERDICTS[o.verdict].label}</span>`;
@@ -630,7 +649,6 @@ function viewOperation(id) {
   const r = OSH_REASONS[o.reason];
   const msg = o.messageId && msgById(o.messageId);
   const locked = !!msg; // операция уже в сообщении — заключение не меняем
-  const editing = isOsh(o) && !locked && (o.verdict === 'pending' || ui.verdictDraft);
   const others = pendingOsh().filter((x) => x.id !== o.id);
   const next = others[0];
 
@@ -643,6 +661,17 @@ function viewOperation(id) {
           ${isOsh(o) ? `<span class="tag tag--osh">ОСХ</span> ${verdictBadge(o)}` : `<span class="tag">${OP_CLASSES[o.cls]}</span>`}
         </div>
       </div>
+      ${isOsh(o) && !locked ? `
+        <div class="decide" role="group" aria-label="Заключение по операции">
+          <span class="decide__label">${o.verdict === 'pending' ? 'Операция обоснована?' : 'Заключение'}</span>
+          <div class="decide__buttons">
+            ${['justified', 'unjustified'].map((v) => `
+              <button type="button" class="decide__btn decide__btn--${v} ${o.verdict === v ? 'is-active' : ''}"
+                data-action="decide" data-op="${o.id}" data-verdict="${v}" aria-pressed="${o.verdict === v}">
+                ${o.verdict === v ? ICON.check : ''}${VERDICTS[v].label}
+              </button>`).join('')}
+          </div>
+        </div>` : ''}
     </div>
 
     <div class="op-grid">
@@ -667,10 +696,10 @@ function viewOperation(id) {
         </section>` : ''}
     </div>
 
-    ${isOsh(o) ? `
+    ${isOsh(o) && o.verdict !== 'pending' ? `
       <section class="card details verdict" id="verdict">
         <h2 class="details__title">Заключение</h2>
-        ${editing ? verdictForm(o) : verdictResult(o, msg, locked)}
+        ${verdictResult(o, msg)}
       </section>` : ''}
 
     ${next ? `
@@ -725,67 +754,145 @@ function reasonDetails(o) {
     </div>`;
 }
 
-function verdictForm(o) {
-  const draft = ui.verdictDraft || { choice: o.verdict === 'pending' ? '' : o.verdict, comment: o.verdictComment || '' };
-  ui.verdictDraft = draft;
-  return `
-    <p class="verdict__lead">Операция обоснована?</p>
-    <div class="options">
-      <label class="option ${draft.choice === 'justified' ? 'is-active' : ''}">
-        <input type="radio" name="verdict" value="justified" data-action="verdict-choice" ${draft.choice === 'justified' ? 'checked' : ''}>
-        <b>Обоснована</b><span>Останется в системе с отметкой и не попадёт в сообщение</span>
-      </label>
-      <label class="option ${draft.choice === 'unjustified' ? 'is-active' : ''}">
-        <input type="radio" name="verdict" value="unjustified" data-action="verdict-choice" ${draft.choice === 'unjustified' ? 'checked' : ''}>
-        <b>Не обоснована</b><span>Попадёт в сформированное сообщение и уйдёт в Росфинмониторинг</span>
-      </label>
-    </div>
-    <label class="field">
-      <span>Комментарий к заключению</span>
-      <textarea id="verdict-comment" rows="3" placeholder="Например: плательщик — поручитель, есть письмо лизингополучателя">${esc(draft.comment)}</textarea>
-      <small class="field__error" id="verdict-error"></small>
-    </label>
-    <div class="verdict__actions">
-      ${o.verdict !== 'pending' ? '<button type="button" class="btn btn--link" data-action="verdict-cancel">Отмена</button>' : ''}
-      <button type="button" class="btn btn--primary" data-action="verdict-save" data-op="${o.id}">Сохранить заключение</button>
-    </div>`;
-}
-
-function verdictResult(o, msg, locked) {
-  const unj = o.verdict === 'unjustified';
+function verdictResult(o, msg) {
   return `
     <div class="verdict-result verdict-result--${VERDICTS[o.verdict].cls}">
       <div class="verdict-result__head">${verdictBadge(o)}<span class="muted">${esc(o.verdictBy)} · ${o.verdictAt}</span></div>
       ${o.verdictComment ? `<p class="verdict-result__comment">${esc(o.verdictComment)}</p>` : ''}
+      ${(o.verdictFiles || []).length ? `<div class="file-list">${o.verdictFiles.map((f, i) => fileChip(f, `data-action="preview-file" data-op="${o.id}" data-file="${i}"`)).join('')}</div>` : ''}
       <p class="verdict-result__next">${
         msg ? `Операция включена в сообщение <a class="link" href="#/messages/${msg.id}">${msg.number}</a> (${MSG_STATUS[msg.status].label.toLowerCase()}).`
-        : unj ? 'Операция попадёт в следующее сформированное сообщение и уйдёт в Росфинмониторинг.'
+        : o.verdict === 'unjustified' ? 'Операция попадёт в следующее сформированное сообщение и уйдёт в Росфинмониторинг.'
         : 'Операция остаётся в системе с отметкой «Обоснована» и не попадёт в сообщение.'}</p>
-    </div>
-    <div class="verdict__actions">
-      ${!locked ? '<button type="button" class="btn btn--secondary" data-action="verdict-edit">Изменить заключение</button>' : ''}
-      ${unj && !msg ? '<a class="btn btn--primary" href="#/create">Сформировать сообщение</a>' : ''}
     </div>`;
 }
 
-function saveVerdict(opId) {
+// Шаг 2: подтверждение выбранного заключения — комментарий и файлы
+const COMMENT_MAX = 500;
+const FILE_MAX = 10 * 1024 * 1024;
+const FILES_MAX = 5;
+
+function confirmVerdict(opId, verdict) {
   const o = opById(opId);
-  const draft = ui.verdictDraft || {};
-  draft.comment = document.getElementById('verdict-comment').value.trim();
-  const err = document.getElementById('verdict-error');
-  if (!draft.choice) { err.textContent = 'Выбери, обоснована операция или нет'; return; }
-  if (draft.comment.length < 5) {
-    err.textContent = 'Опиши, на чём основано заключение';
-    document.getElementById('verdict-comment').focus();
-    return;
+  const same = o.verdict === verdict;
+  const files = same ? [...(o.verdictFiles || [])] : [];
+  const comment = same ? (o.verdictComment || '') : '';
+
+  openModal({
+    title: verdict === 'justified' ? 'Операция обоснована' : 'Операция не обоснована',
+    body: `
+      <p>${verdict === 'justified'
+        ? 'Операция останется в системе с отметкой «Обоснована» и не попадёт в сообщение.'
+        : 'Операция попадёт в следующее сформированное сообщение и уйдёт в Росфинмониторинг.'}</p>
+      <label class="tfield">
+        <span class="tfield__label">Комментарий</span>
+        <textarea id="verdict-comment" rows="3" maxlength="${COMMENT_MAX}" placeholder="${verdict === 'justified'
+          ? 'Например: плательщик — поручитель, есть письмо лизингополучателя'
+          : 'Например: связь плательщика с лизингополучателем не подтверждена'}">${esc(comment)}</textarea>
+        <span class="tfield__counter" id="verdict-counter">${comment.length}/${COMMENT_MAX}</span>
+      </label>
+      <small class="field__error" id="verdict-error"></small>
+
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="verdict-files" multiple hidden>
+        <button type="button" class="linklike" data-pick>Выберите файлы</button> или перетяните их сюда
+      </div>
+      <p class="dropzone__desc">PDF, JPG, PNG, DOCX, XLSX — до ${FILES_MAX} файлов, каждый до 10 МБ</p>
+      <div class="file-list" id="file-list"></div>`,
+    confirmText: 'Подтвердить',
+    onOpen(wrap) {
+      const list = wrap.querySelector('#file-list');
+      const input = wrap.querySelector('#verdict-files');
+      const zone = wrap.querySelector('#dropzone');
+      const err = wrap.querySelector('#verdict-error');
+      const drawFiles = () => {
+        list.innerHTML = files.map((f, i) => fileChip(f, `data-preview="${i}"`, `<button type="button" class="file-chip__remove" data-remove="${i}" aria-label="Удалить ${esc(f.name)}">${ICON.close}</button>`)).join('');
+      };
+      const addFiles = async (fileList) => {
+        err.textContent = '';
+        for (const file of fileList) {
+          if (files.length >= FILES_MAX) { err.textContent = `Можно прикрепить не больше ${FILES_MAX} файлов`; break; }
+          if (file.size > FILE_MAX) { err.textContent = `Файл «${file.name}» больше 10 МБ`; continue; }
+          files.push({ name: file.name, type: file.type || '', size: file.size, data: await readFile(file) });
+        }
+        drawFiles();
+      };
+      drawFiles();
+      wrap.querySelector('#verdict-comment').addEventListener('input', (e) => {
+        wrap.querySelector('#verdict-counter').textContent = `${e.target.value.length}/${COMMENT_MAX}`;
+        err.textContent = '';
+      });
+      wrap.querySelector('[data-pick]').addEventListener('click', () => input.click());
+      input.addEventListener('change', () => { const picked = [...input.files]; input.value = ''; addFiles(picked); });
+      zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('is-over'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('is-over'));
+      zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('is-over'); addFiles([...e.dataTransfer.files]); });
+      list.addEventListener('click', (e) => {
+        const rm = e.target.closest('[data-remove]');
+        if (rm) { files.splice(Number(rm.dataset.remove), 1); return drawFiles(); }
+        const pv = e.target.closest('[data-preview]');
+        if (pv) previewFile(files[Number(pv.dataset.preview)]);
+      });
+    },
+    onConfirm() {
+      const text = document.getElementById('verdict-comment').value.trim();
+      if (text.length < 5) {
+        document.getElementById('verdict-error').textContent = 'Опиши, на чём основано заключение';
+        document.getElementById('verdict-comment').focus();
+        return false;
+      }
+      Object.assign(o, { verdict, verdictComment: text, verdictFiles: files, verdictBy: CURRENT_USER, verdictAt: today(), isNew: false });
+      save();
+      render({ keepScroll: true });
+      toast(verdict === 'unjustified'
+        ? 'Не обоснована — операция попадёт в следующее сообщение'
+        : 'Обоснована — операция не попадёт в сообщение');
+    },
+  });
+}
+
+const readFile = (file) => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(r.result);
+  r.onerror = reject;
+  r.readAsDataURL(file);
+});
+
+const fileSize = (n) => n < 1024 ? `${n} Б` : n < 1024 * 1024 ? `${Math.round(n / 1024)} КБ` : `${(n / 1024 / 1024).toFixed(1).replace('.', ',')} МБ`;
+const fileExt = (name) => (name.split('.').pop() || '').slice(0, 4).toUpperCase();
+
+function fileChip(f, attrs, extra = '') {
+  return `
+    <div class="file-chip">
+      <button type="button" class="file-chip__main" ${attrs} title="Открыть ${esc(f.name)}">
+        <span class="file-chip__ext">${esc(fileExt(f.name))}</span>
+        <span class="file-chip__text"><span class="file-chip__name">${esc(f.name)}</span><span class="file-chip__size">${fileSize(f.size)}</span></span>
+      </button>
+      ${extra}
+    </div>`;
+}
+
+// Просмотр файла в попапе
+function previewFile(f) {
+  let view;
+  if (f.type.startsWith('image/')) view = `<img class="preview__img" src="${f.data}" alt="${esc(f.name)}">`;
+  else if (f.type === 'application/pdf') view = `<iframe class="preview__pdf" src="${f.data}" title="${esc(f.name)}"></iframe>`;
+  else if (f.type.startsWith('text/')) {
+    let text = '';
+    try { text = decodeURIComponent(escape(atob(f.data.split(',')[1]))); } catch (e) { text = ''; }
+    view = `<pre class="preview__text">${esc(text)}</pre>`;
+  } else {
+    view = `<div class="preview__none"><span class="file-chip__ext file-chip__ext--lg">${esc(fileExt(f.name))}</span>
+      <p>Предпросмотр для этого формата недоступен. Скачай файл, чтобы открыть его.</p></div>`;
   }
-  Object.assign(o, { verdict: draft.choice, verdictComment: draft.comment, verdictBy: CURRENT_USER, verdictAt: today(), isNew: false });
-  ui.verdictDraft = null;
-  save();
-  render({ keepScroll: true });
-  toast(draft.choice === 'unjustified'
-    ? 'Не обоснована — операция попадёт в следующее сообщение'
-    : 'Обоснована — операция не попадёт в сообщение');
+  openModal({
+    title: f.name,
+    wide: true,
+    body: `<div class="preview">${view}</div><p class="preview__meta">${fileSize(f.size)}</p>`,
+    actions: `
+      <a class="btn btn--secondary" href="${f.data}" download="${esc(f.name)}" data-download>Скачать</a>
+      <button type="button" class="btn btn--primary" data-close>Закрыть</button>`,
+  });
 }
 
 function periodLabel() {
@@ -911,7 +1018,6 @@ function render({ keepScroll = false } = {}) {
   if (route !== currentRoute) {
     if (parts[0] !== 'create') { ui.draftNumber = null; ui.selected.clear(); }
     ui.opsLimit = 20;
-    ui.verdictDraft = null;
     // ссылка «Проверить» с главной: только ОСХ без заключения
     if (route === '/operations?review') Object.assign(ui, { opsClass: 'suspicious', opsVerdict: 'pending', opsKind: '', opsQuery: '', opsFrom: '', opsTo: '' });
   }
@@ -1047,40 +1153,45 @@ function createMessage() {
 
 /* ---------- Модалка и тосты ---------- */
 
-function openModal({ title, body, confirmText, danger, hideCancel, onConfirm }) {
+function openModal({ title, body, confirmText, danger, hideCancel, onConfirm, wide, actions, onOpen }) {
   const prevFocus = document.activeElement;
   const wrap = document.createElement('div');
   wrap.className = 'modal';
   wrap.innerHTML = `
     <div class="modal__backdrop" data-close></div>
-    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal__dialog ${wide ? 'modal__dialog--wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <h2 id="modal-title" class="modal__title">${esc(title)}</h2>
       <div class="modal__body">${body}</div>
       <div class="modal__actions">
-        ${hideCancel ? '' : '<button type="button" class="btn btn--secondary" data-close>Отмена</button>'}
-        <button type="button" class="btn ${danger ? 'btn--danger-solid' : 'btn--primary'}" data-confirm>${esc(confirmText)}</button>
+        ${actions !== undefined ? actions : `
+          ${hideCancel ? '' : '<button type="button" class="btn btn--secondary" data-close>Отмена</button>'}
+          <button type="button" class="btn ${danger ? 'btn--danger-solid' : 'btn--primary'}" data-confirm>${esc(confirmText)}</button>`}
       </div>
     </div>`;
   document.body.appendChild(wrap);
   document.body.classList.add('no-scroll');
 
+  const isTop = () => [...document.querySelectorAll('.modal')].pop() === wrap;
   const close = () => {
     wrap.remove();
-    document.body.classList.remove('no-scroll');
+    if (!document.querySelector('.modal')) document.body.classList.remove('no-scroll');
     document.removeEventListener('keydown', onKey);
     if (prevFocus && document.contains(prevFocus)) prevFocus.focus();
   };
-  const confirm = () => { if (onConfirm() !== false) close(); };
+  const confirm = () => { if (!onConfirm || onConfirm() !== false) close(); };
   const onKey = (e) => {
+    if (!isTop()) return;
     if (e.key === 'Escape') close();
-    if (e.key === 'Enter' && e.target.tagName === 'INPUT') confirm();
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type !== 'file') confirm();
   };
   wrap.addEventListener('click', (e) => {
     if (e.target.closest('[data-close]')) close();
     if (e.target.closest('[data-confirm]')) confirm();
   });
   document.addEventListener('keydown', onKey);
-  (wrap.querySelector('input') || wrap.querySelector('[data-confirm]')).focus();
+  if (onOpen) onOpen(wrap);
+  (wrap.querySelector('textarea, input:not([type=file])') || wrap.querySelector('[data-confirm], [data-close]')).focus();
+  return { close };
 }
 
 function toast(text, { action, onAction } = {}) {
@@ -1108,13 +1219,8 @@ document.addEventListener('click', (e) => {
       case 'msg-filter': ui.msgFilter = filter; return render({ keepScroll: true });
       case 'clear-filter': ui[filter] = ''; if (filter === 'opsClass') ui.opsVerdict = ''; ui.opsLimit = 20; return render({ keepScroll: true });
       case 'verdict-filter': ui.opsVerdict = filter; ui.opsLimit = 20; return render({ keepScroll: true });
-      case 'verdict-save': return saveVerdict(op);
-      case 'verdict-edit': {
-        const o = opById(currentPath.split('/')[2]);
-        ui.verdictDraft = { choice: o.verdict, comment: o.verdictComment || '' };
-        return render({ keepScroll: true });
-      }
-      case 'verdict-cancel': ui.verdictDraft = null; return render({ keepScroll: true });
+      case 'decide': return confirmVerdict(op, actionEl.dataset.verdict);
+      case 'preview-file': return previewFile(opById(op).verdictFiles[Number(actionEl.dataset.file)]);
       case 'toggle-period': ui.periodOpen = !ui.periodOpen; return render({ keepScroll: true });
       case 'clear-period': ui.opsFrom = ui.opsTo = ''; ui.periodOpen = false; return render({ keepScroll: true });
       case 'period-preset': {
@@ -1183,10 +1289,6 @@ document.addEventListener('change', (e) => {
     if (e.target.id === 'ops-class' && e.target.value !== 'suspicious') ui.opsVerdict = '';
     ui.opsLimit = 20;
     render({ keepScroll: true });
-  } else if (action === 'verdict-choice') {
-    ui.verdictDraft = { choice: e.target.value, comment: document.getElementById('verdict-comment').value };
-    document.querySelectorAll('.verdict .option').forEach((l) => l.classList.toggle('is-active', l.contains(e.target)));
-    document.getElementById('verdict-error').textContent = '';
   } else if (e.target.id === 'pick-kind') {
     ui.pickKind = e.target.value;
     refreshList();
@@ -1197,7 +1299,6 @@ document.addEventListener('input', (e) => {
   if (e.target.id === 'msg-search') { ui.msgQuery = e.target.value; refreshList(); }
   if (e.target.id === 'ops-search') { ui.opsQuery = e.target.value; ui.opsLimit = 20; refreshList(); }
   if (e.target.id === 'pick-search') { ui.pickQuery = e.target.value; refreshList(); }
-  if (e.target.id === 'verdict-comment' && ui.verdictDraft) ui.verdictDraft.comment = e.target.value;
 });
 
 // Перерисовываем только список, чтобы не терять фокус в поиске
