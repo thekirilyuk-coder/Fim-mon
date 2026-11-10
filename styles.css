@@ -751,6 +751,14 @@ body.is-column .picker {
 body.is-column.has-tablebar .picker { min-height: calc(100vh - 104px - 96px); }
 body.is-column .proto-footer { display: none; }
 
+/* ---------- Карточка операции в белой колонке ---------- */
+.op-page .page-head { margin-bottom: 8px; }
+.op-page .page-head__status { margin-top: 12px; }
+.op-page .op-grid { gap: 48px; margin-top: 24px; padding-top: 28px; border-top: 1px solid var(--border); }
+.op-section { padding: 0; }
+.op-page .verdict { margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--border); }
+.op-page .next-op { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border); }
+
 /* ---------- Адаптив ---------- */
 @media (max-width: 720px) {
   .page { padding-top: 28px; }
@@ -780,6 +788,7 @@ body.is-column .proto-footer { display: none; }
   .fsel { height: 64px; }
   .table--ops .col-client { max-width: 220px; }
   .op-grid { grid-template-columns: 1fr; }
+  .op-page .op-grid { gap: 28px; }
   .segmented { display: flex; flex-direction: column; width: 100%; }
   .segmented__item { justify-content: flex-start; }
   .pay-card__head { flex-direction: column; }

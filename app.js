@@ -642,10 +642,11 @@ function viewOperation(id) {
   const next = others[0];
 
   return `
+    <section class="card picker op-page">
     <a class="back" href="#/operations">${ICON.back}Операции</a>
     <div class="page-head">
       <div>
-        <h1 class="page__title page__title--sm">${esc(o.client)}</h1>
+        <h1 class="picker__title">${esc(o.client)}</h1>
         <div class="page-head__status">
           ${isOsh(o) ? `<span class="tag tag--osh">ОСХ</span> ${verdictBadge(o)}` : `<span class="tag">${OP_CLASSES[o.cls]}</span>`}
         </div>
@@ -653,7 +654,7 @@ function viewOperation(id) {
     </div>
 
     <div class="op-grid">
-      <section class="card details">
+      <section class="op-section">
         <h2 class="details__title">Операция</h2>
         <dl class="facts facts--2">
           <div><dt>Лизингополучатель</dt><dd>${esc(o.client)}</dd></div>
@@ -668,14 +669,14 @@ function viewOperation(id) {
       </section>
 
       ${isOsh(o) ? `
-        <section class="card details">
+        <section class="op-section">
           <h2 class="details__title">${o.reason === 'thirdParty' ? 'Оплата третьим лицом' : r.label}</h2>
           ${reasonDetails(o)}
         </section>` : ''}
     </div>
 
     ${isOsh(o) ? `
-      <section class="card details verdict" id="verdict">
+      <section class="op-section verdict" id="verdict">
         <h2 class="details__title">Заключение</h2>
         <div class="segmented ${locked ? 'is-disabled' : ''}" role="radiogroup" aria-label="Заключение по операции">
           ${Object.entries(VERDICTS).map(([v, d]) => `
@@ -698,7 +699,8 @@ function viewOperation(id) {
       <div class="next-op">
         <span>Ещё ${nOps(others.length)} ${plural(others.length, ['ждёт', 'ждут', 'ждут'])} заключения</span>
         <a class="btn btn--secondary btn--sm" href="#/operations/${next.id}">Следующая операция →</a>
-      </div>` : ''}`;
+      </div>` : ''}
+    </section>`;
 }
 
 function reasonDetails(o) {
@@ -1025,7 +1027,7 @@ function render({ keepScroll = false } = {}) {
   app.innerHTML = html;
   document.body.classList.toggle('has-tablebar', parts[0] === 'create');
   // «Операции» и выбор операций — белая колонка во всю высоту, а не карточка-остров
-  document.body.classList.toggle('is-column', parts[0] === 'create' || (parts[0] === 'operations' && !parts[1]));
+  document.body.classList.toggle('is-column', parts[0] === 'create' || parts[0] === 'operations');
   syncIndeterminate();
   renderUser();
   if (route !== currentRoute && !keepScroll) window.scrollTo(0, 0);
