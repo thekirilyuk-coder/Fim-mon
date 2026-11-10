@@ -1,7 +1,7 @@
 /* Кликабельный прототип «Сообщения РФМ».
    Все данные вымышленные и живут в localStorage этого браузера. */
 
-const STORAGE_KEY = 'finmon-prototype-v4';
+const STORAGE_KEY = 'finmon-prototype-v5';
 
 /* ---------- Справочники ---------- */
 
@@ -166,7 +166,12 @@ function makeSeed() {
     }
     return o;
   };
-  const decide = (o, verdict, comment) => {
+  const UNJUSTIFIED_NOTE = {
+    thirdParty: 'Платежи третьего лица не подтверждены документами.',
+    leaseback: 'Экономический смысл возвратного лизинга не подтверждён.',
+    earlyEnd: 'Источник средств для досрочного выкупа не подтверждён.',
+  };
+  const decide = (o, verdict, comment = UNJUSTIFIED_NOTE[o.reason]) => {
     Object.assign(o, { verdict, verdictComment: comment, verdictBy: CURRENT_USER, verdictAt: o.appDate });
     return o;
   };
@@ -175,7 +180,7 @@ function makeSeed() {
     for (let i = 0; i < count; i++) {
       const o = makeOp(date, number);
       // ОСХ попадают в сообщения только после заключения «не обоснована»
-      if (rnd() < .6) decide(addReason(o), 'unjustified', 'Экономический смысл операции не подтверждён.');
+      if (rnd() < .6) decide(addReason(o), 'unjustified');
       ops.push(o);
     }
     return { id: number, number, date, type: 'FMO1', status, sentAt: status === 'sent' ? date : null };
@@ -192,7 +197,7 @@ function makeSeed() {
     if (i % 3 !== 1) o.prevMessage = pick(['00001103', '00001101', '00001099']);
     // первичные операции, которые ещё никуда не отправлялись, пока без номера записи
     if (!o.prevMessage && o.kind === OP_KINDS[0]) o.record = null;
-    if (i % 2 === 0) decide(addReason(o), 'unjustified', 'Платежи третьего лица не подтверждены документами.');
+    if (i % 2 === 0) decide(addReason(o), 'unjustified');
     free.push(o);
   }
 
