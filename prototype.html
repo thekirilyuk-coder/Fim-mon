@@ -1512,6 +1512,7 @@ function viewOperation(id) {
         <h1 class="picker__title">${esc(o.client)}</h1>
         <div class="page-head__status">
           ${isOsh(o) ? `<span class="tag tag--osh">ОСХ</span> ${verdictBadge(o)}` : `<span class="tag">${OP_CLASSES[o.cls]}</span>`}
+          <span class="tag">Выявлено ${o.detectedDate}</span>
         </div>
       </div>
     </div>
@@ -1525,7 +1526,6 @@ function viewOperation(id) {
           <div><dt>Договор лизинга</dt><dd>${o.contract}<small>выдан ${o.contractDate}</small></dd></div>
           <div><dt>Тип</dt><dd>${o.kind}</dd></div>
           <div><dt>Номер записи</dt><dd>${o.record || '—'}<small>АПП ${o.appDate}</small></dd></div>
-          <div><dt>Дней просрочки</dt><dd>${o.overdueDays}<small>выявлено ${o.detectedDate}</small></dd></div>
           <div><dt>Сумма</dt><dd>${o.reason === 'thirdParty' ? kop(o.details.payment.amount) : money(o.amount)}</dd></div>
           <div><dt>Сообщение</dt><dd>${msg ? `<a class="link" href="#/messages/${msg.id}">${msg.number}</a><small>${MSG_STATUS[msg.status].label}</small>` : '—'}</dd></div>
         </dl>
