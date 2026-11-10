@@ -620,15 +620,6 @@ function viewOperation(id) {
       </div>
     </div>
 
-    ${isOsh(o) ? `
-      <div class="callout callout--info">
-        <span class="callout__icon">${ICON.warn}</span>
-        <div class="callout__body">
-          <b>Система отнесла операцию к сомнительным: ${r.label.toLowerCase()}</b>
-          <p>${r.hint} Изучи данные и дай заключение.</p>
-        </div>
-      </div>` : ''}
-
     <div class="op-grid">
       <section class="card details">
         <h2 class="details__title">Операция</h2>

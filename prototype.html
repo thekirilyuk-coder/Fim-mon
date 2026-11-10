@@ -605,7 +605,6 @@ body.has-tablebar .proto-footer { display: none; }
 
 
 .page-head__status { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.callout--info { background: #fff4e5; }
 
 .op-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
 .op-grid .card { margin-top: 0 !important; }
@@ -1344,15 +1343,6 @@ function viewOperation(id) {
         </div>
       </div>
     </div>
-
-    ${isOsh(o) ? `
-      <div class="callout callout--info">
-        <span class="callout__icon">${ICON.warn}</span>
-        <div class="callout__body">
-          <b>Система отнесла операцию к сомнительным: ${r.label.toLowerCase()}</b>
-          <p>${r.hint} Изучи данные и дай заключение.</p>
-        </div>
-      </div>` : ''}
 
     <div class="op-grid">
       <section class="card details">

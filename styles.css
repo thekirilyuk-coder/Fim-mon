@@ -595,7 +595,6 @@ body.has-tablebar .proto-footer { display: none; }
 
 
 .page-head__status { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.callout--info { background: #fff4e5; }
 
 .op-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
 .op-grid .card { margin-top: 0 !important; }
