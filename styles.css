@@ -623,7 +623,11 @@ body.has-tablebar .proto-footer { display: none; }
   border: 2px solid var(--border); border-radius: 12px; outline: none;
 }
 .field textarea:focus { border-color: var(--text); }
-.verdict__actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+.verdict__actions {
+  display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap;
+  margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);
+}
+.verdict__actions [hidden] { display: none; }
 
 
 .next-op {

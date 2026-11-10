@@ -633,7 +633,11 @@ body.has-tablebar .proto-footer { display: none; }
   border: 2px solid var(--border); border-radius: 12px; outline: none;
 }
 .field textarea:focus { border-color: var(--text); }
-.verdict__actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+.verdict__actions {
+  display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap;
+  margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);
+}
+.verdict__actions [hidden] { display: none; }
 
 
 .next-op {
@@ -1092,6 +1096,7 @@ const ui = {
   pickQuery: '', pickKind: '',
   selected: new Set(),
   draftNumber: null,
+  draft: null,
 };
 
 function load() {
@@ -1458,6 +1463,9 @@ function viewOperation(id) {
   const r = OSH_REASONS[o.reason];
   const msg = o.messageId && msgById(o.messageId);
   const locked = !!msg; // операция уже в сообщении — заключение не меняем
+  // Черновик заключения: применяется только кнопкой «Сохранить»
+  if (isOsh(o) && (!ui.draft || ui.draft.opId !== o.id)) ui.draft = draftOf(o);
+  const draft = ui.draft;
   const others = pendingOsh().filter((x) => x.id !== o.id);
   const next = others[0];
 
@@ -1499,14 +1507,19 @@ function viewOperation(id) {
         <h2 class="details__title">Заключение</h2>
         <div class="segmented ${locked ? 'is-disabled' : ''}" role="radiogroup" aria-label="Заключение по операции">
           ${Object.entries(VERDICTS).map(([v, d]) => `
-            <button type="button" role="radio" aria-checked="${o.verdict === v}"
-              class="segmented__item segmented__item--${d.cls} ${o.verdict === v ? 'is-active' : ''}"
+            <button type="button" role="radio" aria-checked="${(locked ? o.verdict : draft.verdict) === v}"
+              class="segmented__item segmented__item--${d.cls} ${(locked ? o.verdict : draft.verdict) === v ? 'is-active' : ''}"
               data-action="decide" data-op="${o.id}" data-verdict="${v}" ${locked ? 'disabled' : ''}>
               <span class="segmented__dot"></span>${d.label}
             </button>`).join('')}
         </div>
         <h3 class="verdict__sub">Комментарий и документы</h3>
         ${notesBlock(o, locked)}
+        ${locked ? '' : `
+          <div class="verdict__actions">
+            <button type="button" class="btn btn--link" data-action="draft-reset" ${isDirty(o) ? '' : 'hidden'}>Отменить</button>
+            <button type="button" class="btn btn--primary" data-action="draft-save" data-op="${o.id}" ${isDirty(o) ? '' : 'disabled'}>Сохранить</button>
+          </div>`}
       </section>` : ''}
 
     ${next ? `
@@ -1562,100 +1575,99 @@ function reasonDetails(o) {
 }
 
 
-// Шаг 2: подтверждение выбранного заключения — комментарий и файлы
+// Ограничения для комментария и файлов
 const COMMENT_MAX = 500;
 const FILE_MAX = 10 * 1024 * 1024;
 const FILES_MAX = 5;
 
-// Комментарий и документы — прямо в карточке, сохраняются сразу
+// Комментарий и документы — черновик, сохраняется кнопкой «Сохранить»
 function notesBlock(o, locked) {
-  const files = o.verdictFiles || [];
   if (locked) {
+    const files = o.verdictFiles || [];
     return `
       ${o.verdictComment ? `<p class="notes__text">${esc(o.verdictComment)}</p>` : '<p class="muted">Комментария нет</p>'}
       ${files.length ? `<div class="file-list">${files.map((f, i) => fileChip(f, `data-action="preview-file" data-op="${o.id}" data-file="${i}"`)).join('')}</div>` : ''}`;
   }
-  const comment = o.verdictComment || '';
+  const { comment } = ui.draft;
   return `
     <div class="notes__form">
       <label class="tfield">
         <span class="tfield__label">Комментарий</span>
-        <textarea id="note-comment" data-op="${o.id}" rows="4" maxlength="${COMMENT_MAX}" placeholder="Что проверил и на чём основано заключение">${esc(comment)}</textarea>
+        <textarea id="note-comment" rows="4" maxlength="${COMMENT_MAX}" placeholder="Что проверил и на чём основано заключение">${esc(comment)}</textarea>
         <span class="tfield__counter" id="note-counter">${comment.length}/${COMMENT_MAX}</span>
       </label>
       <small class="field__error" id="note-error"></small>
 
-      <div class="dropzone" data-op="${o.id}">
-        <input type="file" id="note-files" data-op="${o.id}" multiple hidden>
+      <div class="dropzone">
+        <input type="file" id="note-files" multiple hidden>
         <button type="button" class="linklike" data-action="pick-files">Выберите файлы</button> или перетяните их сюда
       </div>
       <p class="dropzone__desc">PDF, JPG, PNG, DOCX, XLSX — до ${FILES_MAX} файлов, каждый до 10 МБ</p>
-      <div class="file-list" id="note-files-list">${noteFiles(o)}</div>
+      <div class="file-list" id="note-files-list">${noteFiles()}</div>
     </div>`;
 }
 
-const noteFiles = (o) => (o.verdictFiles || []).map((f, i) => fileChip(f,
-  `data-action="preview-file" data-op="${o.id}" data-file="${i}"`,
-  `<button type="button" class="file-chip__remove" data-action="remove-file" data-op="${o.id}" data-file="${i}" aria-label="Удалить ${esc(f.name)}">${ICON.close}</button>`)).join('');
+const draftOf = (o) => ({ opId: o.id, verdict: o.verdict, comment: o.verdictComment || '', files: [...(o.verdictFiles || [])] });
 
-async function addNoteFiles(o, list) {
-  const err = document.getElementById('note-error');
-  err.textContent = '';
-  o.verdictFiles = o.verdictFiles || [];
-  for (const file of list) {
-    if (o.verdictFiles.length >= FILES_MAX) { err.textContent = `Можно прикрепить не больше ${FILES_MAX} файлов`; break; }
-    if (file.size > FILE_MAX) { err.textContent = `Файл «${file.name}» больше 10 МБ`; continue; }
-    o.verdictFiles.push({ name: file.name, type: file.type || '', size: file.size, data: await readFile(file) });
-  }
-  save();
-  document.getElementById('note-files-list').innerHTML = noteFiles(o);
+function isDirty(o) {
+  const d = ui.draft;
+  if (!d || d.opId !== o.id) return false;
+  const saved = o.verdictFiles || [];
+  return d.verdict !== o.verdict || d.comment !== (o.verdictComment || '')
+    || d.files.length !== saved.length || d.files.some((f, i) => f !== saved[i]);
 }
 
-// Шаг 2: подтверждение выбранного заключения
-function confirmVerdict(opId, verdict) {
-  const o = opById(opId);
-  if (o.verdict === verdict) return;
-  if (verdict === 'pending') {
-    openModal({
-      title: 'Снять заключение?',
-      body: `<p>Операция вернётся в статус «Не обработана»${o.verdict === 'unjustified' ? ' и не попадёт в сообщение, пока не будет нового заключения' : ''}. Комментарий и документы сохранятся.</p>`,
-      confirmText: 'Снять',
-      onConfirm() {
-        Object.assign(o, { verdict: 'pending', verdictBy: null, verdictAt: null });
-        save();
-        render({ keepScroll: true });
-        toast('Заключение снято');
-      },
-    });
-    return;
+// Обновить кнопки «Сохранить» / «Отменить» без перерисовки страницы
+function syncDraftActions() {
+  const dirty = isDirty(opById(ui.draft.opId));
+  const saveBtn = document.querySelector('[data-action="draft-save"]');
+  const resetBtn = document.querySelector('[data-action="draft-reset"]');
+  if (saveBtn) saveBtn.disabled = !dirty;
+  if (resetBtn) resetBtn.hidden = !dirty;
+}
+
+const noteFiles = () => ui.draft.files.map((f, i) => fileChip(f,
+  `data-action="preview-file" data-file="${i}"`,
+  `<button type="button" class="file-chip__remove" data-action="remove-file" data-file="${i}" aria-label="Удалить ${esc(f.name)}">${ICON.close}</button>`)).join('');
+
+async function addNoteFiles(list) {
+  const err = document.getElementById('note-error');
+  const files = ui.draft.files;
+  err.textContent = '';
+  for (const file of list) {
+    if (files.length >= FILES_MAX) { err.textContent = `Можно прикрепить не больше ${FILES_MAX} файлов`; break; }
+    if (file.size > FILE_MAX) { err.textContent = `Файл «${file.name}» больше 10 МБ`; continue; }
+    files.push({ name: file.name, type: file.type || '', size: file.size, data: await readFile(file) });
   }
-  const comment = (o.verdictComment || '').trim();
-  if (comment.length < 5) {
+  document.getElementById('note-files-list').innerHTML = noteFiles();
+  syncDraftActions();
+}
+
+function saveDraft(opId) {
+  const o = opById(opId);
+  const d = ui.draft;
+  if (d.verdict !== 'pending' && d.comment.trim().length < 5) {
     const field = document.getElementById('note-comment');
-    document.getElementById('note-error').textContent = 'Перед заключением опиши, что проверил и на чём основано решение';
+    document.getElementById('note-error').textContent = 'Опиши, что проверил и на чём основано заключение';
     field.closest('.tfield').classList.add('is-error');
     field.scrollIntoView({ behavior: 'smooth', block: 'center' });
     field.focus({ preventScroll: true });
     return;
   }
-  const files = (o.verdictFiles || []).length;
-  openModal({
-    title: verdict === 'justified' ? 'Операция обоснована?' : 'Операция не обоснована?',
-    body: `
-      <p>${verdict === 'justified'
-        ? 'Операция останется в системе с отметкой «Обоснована» и не попадёт в сообщение.'
-        : 'Операция попадёт в следующее сформированное сообщение и уйдёт в Росфинмониторинг.'}</p>
-      <p>К заключению приложены комментарий${files ? ` и ${files} ${plural(files, ['файл', 'файла', 'файлов'])}` : ''}.</p>`,
-    confirmText: 'Подтвердить',
-    onConfirm() {
-      Object.assign(o, { verdict, verdictBy: CURRENT_USER, verdictAt: today(), isNew: false });
-      save();
-      render({ keepScroll: true });
-      toast(verdict === 'unjustified'
-        ? 'Не обоснована — операция попадёт в следующее сообщение'
-        : 'Обоснована — операция не попадёт в сообщение');
-    },
-  });
+  const changedVerdict = d.verdict !== o.verdict;
+  Object.assign(o, { verdictComment: d.comment.trim(), verdictFiles: [...d.files] });
+  if (changedVerdict) {
+    Object.assign(o, d.verdict === 'pending'
+      ? { verdict: 'pending', verdictBy: null, verdictAt: null }
+      : { verdict: d.verdict, verdictBy: CURRENT_USER, verdictAt: today(), isNew: false });
+  }
+  save();
+  ui.draft = draftOf(o);
+  render({ keepScroll: true });
+  toast(!changedVerdict ? 'Изменения сохранены'
+    : d.verdict === 'unjustified' ? 'Сохранено. Не обоснована — операция попадёт в следующее сообщение'
+    : d.verdict === 'justified' ? 'Сохранено. Обоснована — операция не попадёт в сообщение'
+    : 'Сохранено. Заключение снято');
 }
 
 const readFile = (file) => new Promise((resolve, reject) => {
@@ -1824,6 +1836,7 @@ function render({ keepScroll = false } = {}) {
   if (route !== currentRoute) {
     if (parts[0] !== 'create') { ui.draftNumber = null; ui.selected.clear(); }
     ui.opsLimit = 20;
+    ui.draft = null;
   }
 
   let html;
@@ -2022,15 +2035,27 @@ document.addEventListener('click', (e) => {
       case 'create': return createMessage();
       case 'msg-filter': ui.msgFilter = filter; return render({ keepScroll: true });
       case 'clear-filter': ui[filter] = ''; ui.opsLimit = 20; return render({ keepScroll: true });
-      case 'decide': return confirmVerdict(op, actionEl.dataset.verdict);
-      case 'preview-file': return previewFile(opById(op).verdictFiles[Number(actionEl.dataset.file)]);
-      case 'remove-file': {
-        const o = opById(op);
-        o.verdictFiles.splice(Number(actionEl.dataset.file), 1);
-        save();
-        document.getElementById('note-files-list').innerHTML = noteFiles(o);
-        return;
+      case 'decide': {
+        ui.draft.verdict = actionEl.dataset.verdict;
+        document.querySelectorAll('.segmented__item').forEach((b) => {
+          const on = b === actionEl;
+          b.classList.toggle('is-active', on);
+          b.setAttribute('aria-checked', on);
+        });
+        document.getElementById('note-error').textContent = '';
+        document.querySelector('.tfield').classList.remove('is-error');
+        return syncDraftActions();
       }
+      case 'draft-save': return saveDraft(op);
+      case 'draft-reset': ui.draft = null; return render({ keepScroll: true });
+      case 'preview-file': {
+        const list = op ? opById(op).verdictFiles : ui.draft.files;
+        return previewFile(list[Number(actionEl.dataset.file)]);
+      }
+      case 'remove-file':
+        ui.draft.files.splice(Number(actionEl.dataset.file), 1);
+        document.getElementById('note-files-list').innerHTML = noteFiles();
+        return syncDraftActions();
       case 'pick-files': return document.getElementById('note-files').click();
       case 'toggle-period': ui.periodOpen = !ui.periodOpen; return render({ keepScroll: true });
       case 'clear-period': ui.opsFrom = ui.opsTo = ''; ui.periodOpen = false; return render({ keepScroll: true });
@@ -2102,7 +2127,7 @@ document.addEventListener('change', (e) => {
   } else if (e.target.id === 'note-files') {
     const picked = [...e.target.files];
     e.target.value = '';
-    addNoteFiles(opById(e.target.dataset.op), picked);
+    addNoteFiles(picked);
   } else if (e.target.id === 'pick-kind') {
     ui.pickKind = e.target.value;
     refreshList();
@@ -2114,11 +2139,11 @@ document.addEventListener('input', (e) => {
   if (e.target.id === 'ops-search') { ui.opsQuery = e.target.value; ui.opsLimit = 20; refreshList(); }
   if (e.target.id === 'pick-search') { ui.pickQuery = e.target.value; refreshList(); }
   if (e.target.id === 'note-comment') {
-    opById(e.target.dataset.op).verdictComment = e.target.value;
-    save();
+    ui.draft.comment = e.target.value;
     document.getElementById('note-counter').textContent = `${e.target.value.length}/${COMMENT_MAX}`;
     document.getElementById('note-error').textContent = '';
     e.target.closest('.tfield').classList.remove('is-error');
+    syncDraftActions();
   }
 });
 
@@ -2167,7 +2192,7 @@ document.addEventListener('drop', (e) => {
   if (!zone) return;
   e.preventDefault();
   zone.classList.remove('is-over');
-  addNoteFiles(opById(zone.dataset.op), [...e.dataTransfer.files]);
+  addNoteFiles([...e.dataTransfer.files]);
 });
 
 window.addEventListener('popstate', () => {
